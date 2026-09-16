@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Padel Auslastung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --chalk:#F4F7F4; --ink:#0F2320; --ink2:#4A615B; --line:#D7E0DA;
+  --court:#14524A; --turf:#2E7D5B; --ball:#C8D93F; --alarm:#B4472B;
+  --panel:#FFFFFF; --r:3px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --chalk:#0C1614; --ink:#E7EFEA; --ink2:#95AAA3; --line:#22332E;
+    --panel:#111D1A; --turf:#4FA87C; --court:#7FD0B6;
+  }
+}
+:root[data-theme="dark"]{
+  --chalk:#0C1614; --ink:#E7EFEA; --ink2:#95AAA3; --line:#22332E;
+  --panel:#111D1A; --turf:#4FA87C; --court:#7FD0B6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--chalk);color:var(--ink);
+  font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 18px 70px}
+h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:13px}
+h2+.sub{margin-bottom:10px}
+header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;justify-content:space-between;
+  padding-bottom:14px;border-bottom:2px solid var(--court);margin-bottom:18px}
+.steuer{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;align-items:flex-end}
+.feld{display:flex;flex-direction:column;gap:5px}
+label{font-size:12px;color:var(--ink2);font-weight:500}
+select,input[type=text],input[type=password],input[type=date],button{font-family:inherit;font-size:14px;color:var(--ink);
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px}
+select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--turf);outline-offset:1px}
+button{cursor:pointer}
+button.mini{padding:5px 9px;font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;
+  padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink2)}
+.chip[aria-pressed=true]{background:var(--court);border-color:var(--court);color:#fff;font-weight:500}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);margin-bottom:26px}
+.kpi{background:var(--panel);padding:13px 14px}
+.kpi .z{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.kpi .l{font-size:12px;color:var(--ink2);margin-top:3px}
+.kpi .k{font-size:12.5px;color:var(--ink2);margin-top:5px}
+section{margin-bottom:30px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-weight:600;font-size:12px;color:var(--ink2);border-bottom:1px solid var(--ink2)}
+tbody tr:last-child td{border-bottom:none}
+td.q{font-weight:600}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.hm{border-collapse:collapse;font-size:11px}
+.hm th{padding:3px 4px;font-weight:500;color:var(--ink2);border:none;font-size:11px}
+.hm td{padding:0;border:1px solid var(--chalk);width:30px;height:26px;text-align:center;font-size:11px;font-weight:500}
+.legende{display:flex;gap:2px;align-items:center;font-size:12px;color:var(--ink2);margin-top:8px;flex-wrap:wrap}
+.legende i{width:22px;height:11px;display:block}
+.bars{display:grid;gap:4px}
+.bar{display:grid;grid-template-columns:120px 1fr 108px;gap:10px;align-items:center;font-size:13px}
+.bar .t{color:var(--ink2)}
+.bar .g{background:var(--line);height:18px}
+.bar .g i{display:block;height:100%}
+.bar .v{text-align:right;font-weight:600}
+.bar .v small{font-weight:400;color:var(--ink2)}
+@media(max-width:620px){.bar{grid-template-columns:86px 1fr 92px;gap:6px}}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;
+  color:var(--ink2);background:var(--panel)}
+.drop.an{border-color:var(--turf)}
+.hinweis{background:var(--panel);border-left:3px solid var(--ball);padding:10px 13px;
+  font-size:13px;margin-bottom:16px}
+.warn{border-left-color:var(--alarm)}
+footer{border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--ink2)}
+.leer{text-align:center;padding:40px 16px}
+svg .achse{stroke:var(--line)}
+svg text{fill:var(--ink2);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Padel Auslastung</h1>
+    <div class="sub" id="kopfInfo">Noch keine Daten geladen</div>
+  </div>
+  <div class="chips">
+    <button class="chip" id="btnImport" aria-pressed="false">Daten hinzufügen</button>
+    <button class="chip" id="btnSperren" aria-pressed="true">Sperrzeiten ausklammern</button>
+    <button class="chip" id="btnSync" aria-pressed="false">Synchronisierung</button>
+    <button class="chip" id="btnSichern" aria-pressed="false">Sicherung speichern</button>
+    <button class="chip" id="btnLeeren" aria-pressed="false">Alles löschen</button>
+  </div>
+</header>
+
+<div id="syncBox" hidden style="margin-bottom:22px">
+  <div class="drop" style="text-align:left">
+    <div style="font-weight:600;color:var(--ink);margin-bottom:8px">Daten über GitHub abgleichen</div>
+    <div class="sub" style="margin-bottom:12px">Einmal pro Gerät eintragen. Am Rechner mit Schreibrecht, am Handy als Nur-Lesen.</div>
+    <div class="steuer" style="margin-bottom:10px">
+      <div class="feld"><label for="syOwner">GitHub-Benutzername</label><input id="syOwner" type="text" placeholder="PaulSchicho"></div>
+      <div class="feld"><label for="syRepo">Repository</label><input id="syRepo" type="text" placeholder="padel-auslastung"></div>
+      <div class="feld" style="flex:1 1 320px"><label for="syToken">Zugangsschlüssel</label><input id="syToken" type="password" placeholder="github_pat_..." style="width:100%"></div>
+      <div class="feld"><label>&nbsp;</label>
+        <button class="chip" id="syLesen" aria-pressed="false">Nur lesen</button></div>
+    </div>
+    <div class="chips">
+      <button class="mini" id="sySave">Speichern</button>
+      <button class="mini" id="syPull">Jetzt laden</button>
+      <button class="mini" id="syPush">Jetzt hochladen</button>
+      <button class="mini" id="syWeg">Verbindung löschen</button>
+    </div>
+    <div id="syStatus" class="sub" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div id="importBox" hidden style="margin-bottom:22px">
+  <div class="drop" id="drop">
+    <div style="font-weight:600;color:var(--ink);margin-bottom:4px">Dateien hierher ziehen</div>
+    <div>Die JSON-Dateien aus dem Abhol-Knopf. Mehrere auf einmal sind möglich.</div>
+    <div style="margin-top:12px"><button class="mini" id="btnWaehlen">Dateien auswählen</button></div>
+    <input type="file" id="datei" multiple accept=".json,application/json" hidden>
+  </div>
+  <div id="importLog" class="sub" style="margin-top:8px"></div>
+</div>
+
+<div id="leer" class="leer">
+  <h2>Noch nichts da</h2>
+  <p class="sub">Lade deine erste Datei über „Daten hinzufügen“. Alles bleibt in diesem Browser.</p>
+</div>
+
+<div id="haupt" hidden>
+  <div class="steuer">
+    <div class="feld" style="flex:1 1 320px">
+      <label>Anlagen <span class="sub" id="anlagenHinweis"></span></label>
+      <div class="chips" id="clubFilter"></div>
+    </div>
+    <div class="feld" id="feldBereich" hidden>
+      <label>Bereich</label>
+      <div class="chips" id="bereichFilter"></div>
+    </div>
+    <div class="feld">
+      <label for="selZeit">Zeitraum</label>
+      <select id="selZeit"></select>
+    </div>
+    <div class="feld" id="feldVon" hidden><label for="datVon">von</label><input type="date" id="datVon"></div>
+    <div class="feld" id="feldBis" hidden><label for="datBis">bis</label><input type="date" id="datBis"></div>
+  </div>
+
+  <div id="meldung"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <h2>Wochentage</h2>
+    <div class="sub">Auslastung im Schnitt je Wochentag</div>
+    <div class="bars" id="wochentage"></div>
+  </section>
+
+  <section>
+    <h2>Tagesabschnitte</h2>
+    <div class="sub">Auslastung nach Tageszeit</div>
+    <div class="bars" id="abschnitte"></div>
+  </section>
+
+  <section>
+    <h2>Monatsverlauf</h2>
+    <div class="sub" id="monatSub"></div>
+    <div class="scroll" id="monatChart"></div>
+    <div class="scroll" style="margin-top:14px"><table id="tabMonat"></table></div>
+  </section>
+
+  <section id="secVergleich" hidden>
+    <h2>Anlagen im Vergleich</h2>
+    <div class="sub">Gleicher Zeitraum, sortiert nach Auslastung</div>
+    <div class="scroll"><table id="tabVergleich"></table></div>
+  </section>
+
+  <section>
+    <h2>Plätze</h2>
+    <div class="scroll"><table id="tabPlatz"></table></div>
+  </section>
+
+  <section>
+    <h2>Wochentag und Stunde</h2>
+    <div class="sub">Jede Zelle ist ein Zeitfenster. Die Zahl ist die Auslastung in Prozent.</div>
+    <div class="scroll"><div id="heat"></div></div>
+    <div class="legende" id="legende"></div>
+  </section>
+
+  <footer><div id="quellen"></div></footer>
+</div>
+</div>
+
+<script>
+"use strict";
+const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
+const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+const KEY="padel.daten.v1";
+const KEYW="padel.auswahl.v1";
+const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
+
+/* ---------- Speicher ---------- */
+let DB={clubs:{},dateien:[]};
+/* clubs[id] = {id,slug,name,courts:{cid:{name,von,bis,raster,bereich,belag}},
+                belegung:{"datum|cid|hhmm":[ab,typ]},
+                deckung:{datum:ab}, preise:[[ab,cid,wd,hhmm,p30]] } */
+
+function laden(){
+  try{const r=localStorage.getItem(KEY); if(r) DB=JSON.parse(r);}catch(e){console.warn(e);}
+  if(!DB.clubs)DB.clubs={}; if(!DB.dateien)DB.dateien=[];
+}
+function sichern(){
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}
+  catch(e){meld("Speicher voll. Ältere Dateien werden nicht mehr behalten.",true);}
+}
+
+/* ---------- Hilfen ---------- */
+
+function plusTage(iso,n){const d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+z2(d.getMonth()+1)+"-"+z2(d.getDate());}
+
+function ausSlug(s){
+  if(!s)return "";
+  return String(s).replace(/-or-/g," | ").replace(/-/g," ")
+    .replace(/\s+/g," ").trim()
+    .replace(/\b([a-zäöüß])/g,m=>m.toUpperCase());
+}
+function club(id,slug,name){
+  if(!DB.clubs[id])DB.clubs[id]={id:String(id),slug:slug||"",
+    name:name||ausSlug(slug)||("Anlage "+id),
+    courts:{},belegung:{},deckung:{},preise:[]};
+  const c=DB.clubs[id];
+  if(slug&&!c.slug)c.slug=slug;
+  const schwach=!c.name||/^Anlage \d+$/.test(c.name);
+  if(name&&schwach)c.name=name;
+  else if(schwach&&slug)c.name=ausSlug(slug);
+  return c;
+}
+
+/* ---------- Einlesen ---------- */
+function slotsAus(body){
+  let o; try{o=JSON.parse(body);}catch(e){return [];}
+  let s=o&&o.slots; if(s&&!Array.isArray(s)&&s.slots)s=s.slots;
+  return Array.isArray(s)?s:[];
+}
+function typVon(x){return x.title?1:(x.match?2:0);}
+
+function nimmSlots(c,ab,liste){
+  for(const x of liste){
+    const k=x.date+"|"+x.court+"|"+String(x.start).padStart(4,"0");
+    const alt=c.belegung[k];
+    if(!alt||alt[0]<=ab) c.belegung[k]=[ab,typVon(x)];
+  }
+}
+function deckeWoche(c,ab,start){
+  for(let i=0;i<7;i++){
+    const t=plusTage(start,i);
+    if(!c.deckung[t]||c.deckung[t]<=ab)c.deckung[t]=ab;
+  }
+}
+/* alte Einträge eines Tages entfernen, die im neueren Abruf fehlen */
+function bereinige(c,ab,tage,courts){
+  const set=new Set(tage);
+  const cs=courts&&courts.length?new Set(courts.map(String)):null;
+  for(const k of Object.keys(c.belegung)){
+    const teile=k.split("|");
+    if(!set.has(teile[0]))continue;
+    if(cs&&!cs.has(teile[1]))continue;
+    if(c.belegung[k][0]<ab) delete c.belegung[k];
+  }
+}
+
+function kalenderHTML(c,ab,html){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  doc.querySelectorAll("td[data-court][data-firststart]").forEach(td=>{
+    const cid=td.getAttribute("data-court");
+    const nm=td.querySelector(".court-name");
+    const tr=td.closest("tr");
+    if(!c.courts[cid])c.courts[cid]={};
+    const o=c.courts[cid];
+    if(nm&&nm.textContent.trim())o.name=nm.textContent.trim();
+    o.von=hhmm2min(td.getAttribute("data-firststart"));
+    o.bisStart=hhmm2min(td.getAttribute("data-laststart"));
+    if(tr){o.bereich=tr.getAttribute("data-area")||o.bereich;
+           o.belag=tr.getAttribute("data-surface")||o.belag;}
+  });
+  const neu=[];
+  doc.querySelectorAll("td[data-price][data-start][data-court]").forEach(td=>{
+    const cid=td.getAttribute("data-court");
+    const s=hhmm2min(td.getAttribute("data-start"));
+    let e=hhmm2min(td.getAttribute("data-end"));
+    if(e<=s)e+=1440;
+    const dauer=Math.max(30,e-s);
+    const preis=parseFloat(td.getAttribute("data-price"));
+    const dat=td.getAttribute("data-date");
+    if(!dat||isNaN(preis))return;
+    if(c.courts[cid]){
+      const r=c.courts[cid].raster;
+      c.courts[cid].raster=r?Math.min(r,dauer):dauer;
+    }
+    const p30=preis*30/dauer;
+    const w=wdVon(dat);
+    for(let m=s;m<e;m+=30) neu.push([ab,cid,w,min2hhmm(m),Math.round(p30*100)/100]);
+  });
+  if(neu.length){
+    const wegAb=new Set(neu.map(r=>r[0]+"|"+r[1]+"|"+r[2]+"|"+r[3]));
+    c.preise=c.preise.filter(r=>!wegAb.has(r[0]+"|"+r[1]+"|"+r[2]+"|"+r[3]));
+    c.preise.push(...neu);
+  }
+}
+
+function leseDatei(obj,name){
+  let clubsBeruehrt=new Set(), n=0;
+
+  if(obj&&obj.padelSicherung&&obj.clubs){
+    DB={clubs:obj.clubs,dateien:obj.dateien||[]};
+    return {ok:true,n:0,clubs:Object.keys(obj.clubs),sicherung:true};
+  }
+
+  /* Lauscher-Aufzeichnung */
+  if(Array.isArray(obj)){
+    const ab=new Date().toISOString();
+    for(const q of obj){
+      if(!q||!q.u)continue;
+      if(q.u.indexOf("calendar/update")>=0&&q.b){
+        const p=new URLSearchParams(q.rb||"");
+        const id=p.get("facilityId"); if(!id)continue;
+        const c=club(id,p.get("facilitySlug"));
+        kalenderHTML(c,ab,q.b); clubsBeruehrt.add(id);
+      }else if(q.u.indexOf("/api/slot")>=0&&q.b){
+        const m=q.u.match(/facilityId=(\d+)/); if(!m)continue;
+        const c=club(m[1]); const s=slotsAus(q.b);
+        const sd=(q.u.match(/startDate=([\d-]+)/)||[])[1];
+        const tage=sd?Array.from({length:7},(_,i)=>plusTage(sd,i)):[];
+        if(sd){bereinige(c,ab,tage,[...new Set(s.map(x=>String(x.court)))]);deckeWoche(c,ab,sd);}
+        nimmSlots(c,ab,s); n+=s.length; clubsBeruehrt.add(m[1]);
+      }
+    }
+  }
+  /* Abhol-Datei */
+  else if(obj&&obj.wochen){
+    const ab=obj.geholt||new Date().toISOString();
+    const c=club(obj.facility,obj.slug,obj.titel);
+    if(obj.titel&&obj.titel.length>3)c.name=obj.titel;
+    clubsBeruehrt.add(String(obj.facility));
+    for(const w of obj.wochen){
+      if(w.status!==200||!w.body)continue;
+      const tage=Array.from({length:7},(_,i)=>plusTage(w.start,i));
+      const s=slotsAus(w.body);
+      const cset=obj.courts&&obj.courts.length?obj.courts.map(String)
+                 :[...new Set(s.map(x=>String(x.court)))];
+      bereinige(c,ab,tage,cset); deckeWoche(c,ab,w.start);
+      nimmSlots(c,ab,s); n+=s.length;
+    }
+    if(obj.kalender) for(const h of obj.kalender) kalenderHTML(c,ab,h);
+    if(obj.meta) for(const m of obj.meta){
+      const o=c.courts[m[0]]=c.courts[m[0]]||{};
+      if(m[1])o.name=m[1];
+      o.von=hhmm2min(m[2]); o.bisStart=hhmm2min(m[3]);
+      if(m[4])o.bereich=m[4]; if(m[5])o.belag=m[5];
+    }
+    if(obj.preise&&obj.preise.length){
+      const neu=[];
+      for(const r of obj.preise){
+        const cid=String(r[0]), dat=r[1];
+        const s=hhmm2min(r[2]); let e=hhmm2min(r[3]); if(e<=s)e+=1440;
+        const dauer=Math.max(30,e-s), p=parseFloat(r[4]);
+        if(isNaN(p)||!dat)continue;
+        if(c.courts[cid]){const q=c.courts[cid].raster;
+          c.courts[cid].raster=q?Math.min(q,dauer):dauer;}
+        const w=wdVon(dat);
+        for(let m=s;m<e;m+=30)
+          neu.push([ab,cid,w,min2hhmm(m%1440),Math.round(p*30/dauer*100)/100]);
+      }
+      const weg=new Set(neu.map(r=>r.slice(0,4).join("|")));
+      c.preise=c.preise.filter(r=>!weg.has(r.slice(0,4).join("|")));
+      c.preise.push(...neu);
+    }
+  }
+  else return {ok:false};
+
+  for(const id of clubsBeruehrt){
+    const c=DB.clubs[id];
+    for(const cid in c.courts){ if(!c.courts[cid].raster)c.courts[cid].raster=60; }
+  }
+  DB.dateien.push({name:name,zeit:new Date().toISOString(),slots:n});
+  return {ok:true,n:n,clubs:[...clubsBeruehrt]};
+}
+
+
+
+/* ---------- Rechnen ---------- */
+const z2=n=>String(n).padStart(2,"0");
+function hhmm2min(s){s=String(s).padStart(4,"0");return +s.slice(0,2)*60 + +s.slice(2);}
+function min2hhmm(m){return z2(Math.floor(m/60))+z2(m%60);}
+function uhr(m){if(m>=1440&&m%1440===0)return "24:00";return z2(Math.floor(m/60)%24)+":"+z2(m%60);}
+function heuteISO(){const d=new Date();return d.getFullYear()+"-"+z2(d.getMonth()+1)+"-"+z2(d.getDate());}
+function wdVon(iso){const d=new Date(iso+"T12:00:00");return (d.getDay()+6)%7;}
+function plusTage(iso,n){const d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+n);
+  return d.getFullYear()+"-"+z2(d.getMonth()+1)+"-"+z2(d.getDate());}
+function eur(n){return n.toLocaleString("de-AT",{maximumFractionDigits:0})+" €";}
+function eur2(n){return n.toLocaleString("de-AT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";}
+function pz(n){return n.toLocaleString("de-AT",{minimumFractionDigits:1,maximumFractionDigits:1})+" %";}
+function std(n){return n.toLocaleString("de-AT",{maximumFractionDigits:0});}
+
+let SPERREN_AUS=true, BEREICH=null, CLUBS=null;
+
+function alleCourts(c){
+  const ids=new Set(Object.keys(c.courts));
+  for(const k in c.belegung) ids.add(k.split("|")[1]);
+  return [...ids];
+}
+function bereichVon(c,cid){const o=c.courts[cid];return (o&&o.bereich)?o.bereich:"ohne Angabe";}
+function bereicheVon(liste){
+  const b=new Set();
+  for(const c of liste) for(const cid of alleCourts(c)) b.add(bereichVon(c,cid));
+  return [...b].sort();
+}
+function courtListe(c){
+  const l=alleCourts(c);
+  if(!BEREICH||!BEREICH.size)return l;
+  const g=l.filter(x=>BEREICH.has(bereichVon(c,x)));
+  return g;
+}
+function courtInfo(c,cid){
+  const o=c.courts[cid]||{};
+  return {name:o.name||("Platz "+cid),von:o.von!=null?o.von:7*60,
+          bisStart:o.bisStart!=null?o.bisStart:22*60,raster:o.raster||60,
+          bereich:o.bereich||"",belag:o.belag||""};
+}
+function zellenCourt(c,cid){const i=courtInfo(c,cid);
+  return Math.max(0,(i.bisStart+i.raster-i.von)/30);}
+function preisFuer(c,cid,datum,hhmm){
+  const w=wdVon(datum); let best=null;
+  for(const r of c.preise){
+    if(r[1]!==cid||r[2]!==w||r[3]!==hhmm)continue;
+    if(r[0]<=datum+"T23:59"){if(!best||r[0]>best[0])best=r;} else if(!best)best=r;
+  }
+  return best?best[4]:null;
+}
+function ersteBuchung(c){let m=null;for(const k in c.belegung){const t=k.slice(0,10);if(!m||t<m)m=t;}return m;}
+function ersterTag(c){
+  const d=Object.keys(c.deckung).sort(), b=ersteBuchung(c);
+  if(!d.length)return b; return (b&&b>d[0])?b:d[0];
+}
+function sperrenVon(c,liste){
+  const sp=new Set(); if(!SPERREN_AUS)return sp;
+  const zaehl={};
+  for(const k in c.belegung){const t=k.split("|");zaehl[t[0]+"|"+t[1]]=(zaehl[t[0]+"|"+t[1]]||0)+1;}
+  const tage=Object.keys(c.deckung).sort().filter(t=>t<heuteISO());
+  for(const cid of liste){
+    let lauf=[]; const zu=()=>{if(lauf.length>=7)lauf.forEach(t=>sp.add(t+"|"+cid));lauf=[];};
+    for(const t of tage){
+      const e=zaehl[t+"|"+cid]||0; let rest=0;
+      for(const x of liste) if(x!==cid) rest+=zaehl[t+"|"+x]||0;
+      if(e===0&&rest>=8)lauf.push(t); else zu();
+    }
+    zu();
+  }
+  return sp;
+}
+function sperrZeitraeume(c,sp){
+  const nach={};
+  for(const k of sp){const [t,cid]=k.split("|");(nach[cid]=nach[cid]||[]).push(t);}
+  const raus=[];
+  for(const cid in nach){
+    const t=nach[cid].sort(); let a=t[0],v=t[0];
+    for(let i=1;i<=t.length;i++){
+      if(i<t.length&&plusTage(v,1)===t[i]){v=t[i];continue;}
+      raus.push({cid,von:a,bis:v,tage:Math.round((new Date(v)-new Date(a))/864e5)+1});
+      a=t[i];v=t[i];
+    }
+  }
+  return raus.sort((x,y)=>y.tage-x.tage);
+}
+function zellenEines(c,von,bis){
+  const proTag={}, erlaubt=new Set(courtListe(c));
+  for(const k in c.belegung){
+    const [datum,cid,hhmm]=k.split("|");
+    if(datum<von||datum>bis||!erlaubt.has(cid))continue;
+    (proTag[datum+"|"+cid]=proTag[datum+"|"+cid]||[]).push(hhmm2min(hhmm));
+  }
+  const raus=[];
+  for(const key in proTag){
+    const [datum,cid]=key.split("|"), raster=courtInfo(c,cid).raster, bel=new Set();
+    for(const m of proTag[key]) for(let t=m;t<m+raster;t+=30) bel.add(t);
+    for(const t of bel) raus.push({datum,cid,min:t});
+  }
+  return raus;
+}
+
+/* Auswertung ueber eine oder mehrere Anlagen */
+function auswertung(ids,von,bis){
+  const h=heuteISO();
+  const teile=[], tageAlle=new Set();
+  let zsAlle=[], kap=0, umsatz=0, ohnePreis=0, stdMitPreis=0, courts=0;
+  let oVon=null,oBis=null; const sperren=[];
+  for(const id of ids){
+    const c=DB.clubs[id]; if(!c)continue;
+    const liste=courtListe(c); if(!liste.length)continue;
+    const start=ersterTag(c);
+    const tage=Object.keys(c.deckung).filter(t=>t>=von&&t>=start&&t<=bis&&t<h).sort();
+    const sp=sperrenVon(c,liste);
+    sperrZeitraeume(c,sp).forEach(x=>sperren.push({club:c,...x}));
+    const zs=zellenEines(c,von,bis).filter(z=>c.deckung[z.datum]&&z.datum<h&&!sp.has(z.datum+"|"+z.cid));
+    let kapC=0;
+    for(const t of tage) for(const cid of liste) if(!sp.has(t+"|"+cid)) kapC+=zellenCourt(c,cid);
+    let umC=0;
+    for(const z of zs){
+      const p=preisFuer(c,z.cid,z.datum,min2hhmm(z.min));
+      if(p==null)ohnePreis++; else {umC+=p; stdMitPreis+=0.5;}
+    }
+    for(const cid of liste){const i=courtInfo(c,cid);
+      oVon=oVon==null?i.von:Math.min(oVon,i.von);
+      oBis=oBis==null?i.bisStart+i.raster:Math.max(oBis,i.bisStart+i.raster);}
+    tage.forEach(t=>tageAlle.add(t));
+    zs.forEach(z=>zsAlle.push({...z,club:c}));
+    kap+=kapC; umsatz+=umC; courts+=liste.length;
+    teile.push({club:c,liste,tage,sp,zs,kap:kapC,umsatz:umC,
+      quote:kapC?zs.length/kapC*100:0});
+  }
+  const tage=[...tageAlle].sort();
+  return {teile,tage,zs:zsAlle,kap,umsatz,ohnePreis,stdMitPreis,courts,
+          oVon:oVon||0,oBis:oBis||0,sperren,
+          quote:kap?zsAlle.length/kap*100:0,stunden:zsAlle.length/2,
+          kapStunden:kap/2};
+}
+/* Kapazitaet gefiltert nach Tag/Stunde */
+function kapFilter(a,tagOk,minOk){
+  let n=0;
+  for(const t of a.teile) for(const d of t.tage){
+    if(tagOk&&!tagOk(d))continue;
+    for(const cid of t.liste){
+      if(t.sp.has(d+"|"+cid))continue;
+      const i=courtInfo(t.club,cid);
+      for(let m=i.von;m<i.bisStart+i.raster;m+=30) if(!minOk||minOk(m)) n++;
+    }
+  }
+  return n;
+}
+
+/* ---------- Farben ---------- */
+function mix(a,b,f){
+  const hx=x=>[parseInt(x.slice(1,3),16),parseInt(x.slice(3,5),16),parseInt(x.slice(5,7),16)];
+  const A=hx(a),B=hx(b);
+  return "rgb("+A.map((v,i)=>Math.round(v+(B[i]-v)*Math.max(0,Math.min(1,f)))).join(",")+")";
+}
+function farbe(q){
+  if(!(q>0))return "var(--panel)";
+  if(q<35) return mix("#A83A22","#E9A292",q/35);
+  if(q<45) return mix("#D9822B","#F3C177",(q-35)/10);
+  return mix("#1F6B4C","#8FD9B0",(q-45)/55);
+}
+function dunkel(q){return q>0&&q<12;}
+
+/* ---------- Bausteine ---------- */
+function meld(text,warn){
+  document.getElementById("meldung").innerHTML=
+    '<div class="hinweis'+(warn?" warn":"")+'">'+text+"</div>";
+}
+function balken(el,rows){
+  el.innerHTML=rows.map(r=>
+    '<div class="bar"><span class="t">'+r.t+'</span>'+
+    '<span class="g"><i style="width:'+Math.max(0,Math.min(100,r.q))+'%;background:'+farbe(r.q)+'"></i></span>'+
+    '<span class="v">'+pz(r.q)+'<br><small>'+r.k+"</small></span></div>").join("");
+}
+function linie(el,monate,serien){
+  const B=Math.max(560,monate.length*86), H=230, L=44, R=14, T=14, U=34;
+  const bx=(i)=>L+(monate.length<2?(B-L-R)/2:i*(B-L-R)/(monate.length-1));
+  const by=(q)=>T+(100-q)/100*(H-T-U);
+  let s='<svg viewBox="0 0 '+B+' '+H+'" width="100%" style="max-width:'+B+'px;height:230px">';
+  for(let q=0;q<=100;q+=25){
+    s+='<line class="achse" x1="'+L+'" y1="'+by(q)+'" x2="'+(B-R)+'" y2="'+by(q)+'"/>';
+    s+='<text x="'+(L-7)+'" y="'+(by(q)+4)+'" text-anchor="end">'+q+'</text>';
+  }
+  monate.forEach((m,i)=>{
+    s+='<text x="'+bx(i)+'" y="'+(H-12)+'" text-anchor="middle">'+MON[+m.slice(5,7)-1]+" "+m.slice(2,4)+"</text>";
+  });
+  serien.forEach((se,k)=>{
+    const f=REIHE[k%REIHE.length];
+    const pts=monate.map((m,i)=>se.werte[m]==null?null:[bx(i),by(se.werte[m])]).filter(Boolean);
+    if(pts.length>1) s+='<polyline fill="none" stroke="'+f+'" stroke-width="2.5" points="'+
+      pts.map(p=>p[0]+","+p[1]).join(" ")+'"/>';
+    pts.forEach(p=>{s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3.5" fill="'+f+'"/>';});
+  });
+  s+="</svg>";
+  const leg=serien.map((se,k)=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">'+
+    '<i style="width:14px;height:3px;background:'+REIHE[k%REIHE.length]+';display:block"></i>'+se.name+"</span>").join("");
+  el.innerHTML=s+'<div class="sub" style="margin-top:6px">'+leg+"</div>";
+}
+
+/* ---------- Zeitraum ---------- */
+function zeitOptionen(){
+  const o=[{v:"gestern",t:"Gestern"},{v:"woche",t:"Diese Woche bis jetzt"},
+    {v:"vwoche",t:"Letzte Woche"},{v:"30",t:"Letzte 30 Tage"},{v:"90",t:"Letzte 90 Tage"},
+    {v:"365",t:"Letzte 12 Monate"},{v:"ytd",t:"Seit Jahresbeginn"}];
+  const j=new Set();
+  for(const id in DB.clubs) for(const t in DB.clubs[id].deckung) j.add(t.slice(0,4));
+  [...j].sort().reverse().forEach(x=>o.push({v:"j"+x,t:"Jahr "+x}));
+  o.push({v:"alles",t:"Gesamter Zeitraum"},{v:"frei",t:"Eigener Zeitraum"});
+  return o;
+}
+function grenzen(v){
+  const h=heuteISO(), g=plusTage(h,-1);
+  if(v==="gestern")return [g,g];
+  if(v==="woche"){const mo=plusTage(h,-wdVon(h));return [mo,g<mo?mo:g];}
+  if(v==="vwoche"){const mo=plusTage(plusTage(h,-wdVon(h)),-7);return [mo,plusTage(mo,6)];}
+  if(v==="ytd")return [h.slice(0,4)+"-01-01",g];
+  if(v==="alles"){let m=null;for(const id in DB.clubs){const t=ersterTag(DB.clubs[id]);
+    if(t&&(!m||t<m))m=t;} return [m||h,g];}
+  if(v==="frei")return [document.getElementById("datVon").value||"2000-01-01",
+                        document.getElementById("datBis").value||h];
+  if(v[0]==="j")return [v.slice(1)+"-01-01",v.slice(1)+"-12-31"];
+  return [plusTage(h,-parseInt(v,10)),g];
+}
+
+/* ---------- Zeichnen ---------- */
+function zeichne(){
+  try{ zeichneIntern(); }
+  catch(e){ meld("Fehler beim Auswerten: <code>"+(e&&e.message)+"</code>",true); console.error(e); }
+}
+function zeichneIntern(){
+  const ids=[...CLUBS];
+  const zv=document.getElementById("selZeit").value;
+  document.getElementById("feldVon").hidden=zv!=="frei";
+  document.getElementById("feldBis").hidden=zv!=="frei";
+  const [von,bis]=grenzen(zv);
+  const a=auswertung(ids,von,bis);
+
+  document.getElementById("kopfInfo").textContent=
+    ids.length+" von "+Object.keys(DB.clubs).length+" Anlagen · "+a.courts+" Plätze";
+
+  let m="";
+  if(!a.tage.length){
+    m="Keine abgeschlossenen Tage in diesem Zeitraum. Wähle einen größeren Zeitraum.";
+    meld(m,true);
+  }else{
+    m="Zeitraum "+von+" bis "+bis+", "+a.tage.length+" Tage mit Daten.";
+    if(a.tage.length<14)m+=" Wenige Tage, die Wochentagswerte sind noch unsicher.";
+    if(a.ohnePreis)m+=" Für "+std(a.ohnePreis/2)+" Stunden fehlt ein Preis, der Umsatz ist untertrieben.";
+    if(a.sperren.length)m+="<br><strong>Als gesperrt gewertet:</strong> "+
+      a.sperren.slice(0,3).map(x=>courtInfo(x.club,x.cid).name+" ("+x.club.name+") "+
+      x.von+" bis "+x.bis).join(", ")+(a.sperren.length>3?" und weitere":"")+".";
+    meld(m,a.tage.length<14);
+  }
+
+  /* KPI */
+  const nTage=a.tage.length||1;
+  const proTag=a.umsatz/nTage, proTagCourt=a.courts?proTag/a.courts:0;
+  const schnitt=a.stdMitPreis?a.umsatz/a.stdMitPreis:0;
+  const kapTag=a.courts?a.kapStunden/nTage:0;
+  const k=[];
+  k.push({z:pz(a.quote),l:"Auslastung gesamt",f:farbe(a.quote)});
+  k.push({z:std(a.stunden)+" h",l:"belegte Platzstunden",k:"von "+std(a.kapStunden)+" h möglich"});
+  k.push({z:a.stdMitPreis?eur2(schnitt):"–",l:"Ø Preis je belegter Stunde"});
+  k.push({z:a.umsatz?eur(a.umsatz):"–",l:"Court-Umsatz im Zeitraum"});
+  k.push({z:a.umsatz?eur(proTag):"–",l:"Umsatz pro Tag",
+          k:a.umsatz?eur2(proTagCourt)+" je Platz und Tag":""});
+  const nachBereich={};
+  a.teile.forEach(t=>t.liste.forEach(cid=>{
+    const b=bereichVon(t.club,cid); nachBereich[b]=(nachBereich[b]||0)+1;}));
+  const teilung=Object.keys(nachBereich).sort().map(b=>nachBereich[b]+" "+b).join(" · ");
+  k.push({z:a.courts,l:a.courts===1?"Platz":"Plätze",
+          k:(Object.keys(nachBereich).length>1||!/ohne Angabe/.test(teilung))?teilung:""});
+  k.push({z:std(kapTag)+" h",l:"Kapazität pro Tag",
+          k:a.oBis?"offen "+uhr(a.oVon)+" bis "+uhr(a.oBis):""});
+  document.getElementById("kpis").innerHTML=k.map(x=>
+    '<div class="kpi"><div class="z"'+(x.f?' style="color:'+x.f+'"':'')+">"+x.z+"</div>"+
+    '<div class="l">'+x.l+"</div>"+(x.k?'<div class="k">'+x.k+"</div>":"")+"</div>").join("");
+
+  /* Wochentage */
+  const wz={}; a.zs.forEach(z=>{const w=wdVon(z.datum);wz[w]=(wz[w]||0)+1;});
+  balken(document.getElementById("wochentage"), WD.map((n,w)=>{
+    const kap=kapFilter(a,d=>wdVon(d)===w,null);
+    const tage=a.tage.filter(t=>wdVon(t)===w).length;
+    return {t:n,q:kap?(wz[w]||0)/kap*100:0,
+      k:std((wz[w]||0)/2)+" h · "+tage+(tage===1?" Tag":" Tage")};
+  }));
+
+  /* Tagesabschnitte */
+  const grenze1=12*60, grenze2=16*60;
+  const abs=[
+    {t:"Vormittag",   l:"bis 12:00",  ok:m=>m<grenze1},
+    {t:"Nachmittag",  l:"12 bis 16",  ok:m=>m>=grenze1&&m<grenze2},
+    {t:"Abend",       l:"ab 16:00",   ok:m=>m>=grenze2}
+  ];
+  balken(document.getElementById("abschnitte"), abs.map(b=>{
+    const kap=kapFilter(a,null,b.ok);
+    const n=a.zs.filter(z=>b.ok(z.min)).length;
+    return {t:b.t,q:kap?n/kap*100:0,k:b.l+" · "+std(n/2)+" h"};
+  }));
+
+  /* Monate: immer die letzten vier Monate, unabhaengig vom Zeitraum oben */
+  const gestern=plusTage(heuteISO(),-1);
+  const startM=(()=>{const d=new Date(gestern+"T12:00:00");
+    d.setDate(1); d.setMonth(d.getMonth()-3);
+    return d.getFullYear()+"-"+z2(d.getMonth()+1)+"-01";})();
+  const aM=auswertung([...CLUBS],startM,gestern);
+  const mz={},mu={};
+  aM.zs.forEach(z=>{const s=z.datum.slice(0,7);mz[s]=(mz[s]||0)+1;
+    const p=preisFuer(z.club,z.cid,z.datum,min2hhmm(z.min)); if(p!=null)mu[s]=(mu[s]||0)+p;});
+  const monate=[...new Set(aM.tage.map(t=>t.slice(0,7)))].sort().slice(-4);
+  const serien=[];
+  if(aM.teile.length>1) aM.teile.forEach(t=>{
+    const w={}; monate.forEach(mm=>{
+      const kap=kapFilter({teile:[t]},d=>d.slice(0,7)===mm,null);
+      const n=t.zs.filter(z=>z.datum.slice(0,7)===mm).length;
+      if(kap) w[mm]=n/kap*100;
+    });
+    serien.push({name:t.club.name,werte:w});
+  });
+  const wGes={}; monate.forEach(mm=>{
+    const kap=kapFilter(aM,d=>d.slice(0,7)===mm,null);
+    if(kap) wGes[mm]=(mz[mm]||0)/kap*100;
+  });
+  serien.unshift({name:aM.teile.length>1?"Alle gewählten":(aM.teile[0]?aM.teile[0].club.name:"Gesamt"),werte:wGes});
+  document.getElementById("monatSub").textContent=
+    "Immer die letzten vier Monate, unabhängig vom gewählten Zeitraum oben";
+  if(monate.length) linie(document.getElementById("monatChart"),monate,serien);
+  else document.getElementById("monatChart").innerHTML='<p class="sub">Noch keine abgeschlossenen Monate.</p>';
+
+  const letzte=monate;
+  let tm='<thead><tr><th>Monat</th><th>Tage</th><th>belegt</th><th>möglich</th><th>Auslastung</th><th>Umsatz</th><th>€/Tag</th></tr></thead><tbody>';
+  letzte.forEach(mm=>{
+    const kap=kapFilter(aM,d=>d.slice(0,7)===mm,null);
+    const nT=aM.tage.filter(t=>t.slice(0,7)===mm).length;
+    const q=kap?(mz[mm]||0)/kap*100:0;
+    tm+="<tr><td>"+MON[+mm.slice(5,7)-1]+" "+mm.slice(0,4)+"</td><td>"+nT+"</td><td>"+
+      std((mz[mm]||0)/2)+" h</td><td>"+std(kap/2)+" h</td>"+
+      '<td class="q" style="color:'+farbe(q)+'">'+pz(q)+"</td><td>"+
+      (mu[mm]?eur(mu[mm]):"–")+"</td><td>"+(mu[mm]?eur(mu[mm]/nT):"–")+"</td></tr>";
+  });
+  document.getElementById("tabMonat").innerHTML=tm+"</tbody>";
+
+  /* Vergleich */
+  const sec=document.getElementById("secVergleich");
+  sec.hidden=Object.keys(DB.clubs).length<2;
+  if(!sec.hidden){
+    const alleIds=Object.keys(DB.clubs);
+    const zeilen=alleIds.map(id=>{
+      const b=auswertung([id],von,bis);
+      return {id,name:DB.clubs[id].name,b};
+    }).sort((x,y)=>y.b.quote-x.b.quote);
+    let tv='<thead><tr><th>Anlage</th><th>Plätze</th><th>Öffnung</th><th>Tage</th><th>Auslastung</th><th>belegt / möglich</th><th>Ø €/h</th><th>Umsatz/Tag</th></tr></thead><tbody>';
+    zeilen.forEach(r=>{
+      const b=r.b, n=b.tage.length;
+      const sp=b.stdMitPreis?b.umsatz/b.stdMitPreis:0;
+      tv+="<tr><td>"+(CLUBS.has(r.id)?"<strong>"+r.name+"</strong>":r.name)+"</td><td>"+b.courts+
+        "</td><td>"+(b.oBis?uhr(b.oVon)+"–"+uhr(b.oBis):"–")+"</td><td>"+n+"</td>"+
+        '<td class="q" style="color:'+farbe(b.quote)+'">'+(n?pz(b.quote):"–")+"</td><td>"+
+        (n?std(b.stunden)+" / "+std(b.kapStunden)+" h":"–")+"</td><td>"+
+        (b.stdMitPreis?eur2(sp):"–")+"</td><td>"+
+        (n&&b.umsatz?eur(b.umsatz/n):"–")+"</td></tr>";
+    });
+    document.getElementById("tabVergleich").innerHTML=tv+"</tbody>";
+  }
+
+  /* Plätze */
+  const mehr=a.teile.length>1;
+  let tp='<thead><tr>'+(mehr?"<th>Anlage</th>":"")+
+    '<th>Platz</th><th>belegt</th><th>Auslastung</th><th>Umsatz</th><th>€/Stunde</th><th>Öffnung</th><th>Bereich</th><th>Raster</th></tr></thead><tbody>';
+  const zeilenP=[];
+  a.teile.forEach(t=>t.liste.forEach(cid=>{
+    const zs=t.zs.filter(z=>z.cid===cid);
+    const tage=t.tage.filter(d=>!t.sp.has(d+"|"+cid)).length;
+    const kap=tage*zellenCourt(t.club,cid);
+    let um=0,mitP=0;
+    zs.forEach(z=>{const p=preisFuer(t.club,cid,z.datum,min2hhmm(z.min));
+      if(p!=null){um+=p;mitP+=0.5;}});
+    const i=courtInfo(t.club,cid);
+    zeilenP.push({club:t.club.name,name:i.name,h:zs.length/2,kap:kap/2,
+      q:kap?zs.length/kap*100:0,um,eh:mitP?um/mitP:null,
+      oe:uhr(i.von)+"–"+uhr(i.bisStart+i.raster),br:bereichVon(t.club,cid),r:i.raster});
+  }));
+  zeilenP.sort((x,y)=>y.q-x.q).forEach(r=>{
+    tp+="<tr>"+(mehr?"<td>"+r.club+"</td>":"")+"<td>"+r.name+"</td><td>"+
+      std(r.h)+" / "+std(r.kap)+" h</td>"+
+      '<td class="q" style="color:'+farbe(r.q)+'">'+pz(r.q)+"</td><td>"+
+      (r.um?eur(r.um):"–")+"</td><td>"+(r.eh?eur2(r.eh):"–")+"</td><td>"+
+      r.oe+"</td><td>"+r.br+"</td><td>"+r.r+" min</td></tr>";
+  });
+  document.getElementById("tabPlatz").innerHTML=tp+"</tbody>";
+
+  /* Heatmap */
+  const h0=Math.floor(a.oVon/60), h1=Math.ceil(a.oBis/60);
+  const grid={}; a.zs.forEach(z=>{const k=wdVon(z.datum)+"|"+Math.floor(z.min/60);grid[k]=(grid[k]||0)+1;});
+  let hh='<table class="hm"><thead><tr><th></th>';
+  for(let h=h0;h<h1;h++) hh+="<th>"+z2(h)+"</th>";
+  hh+="</tr></thead><tbody>";
+  for(let w=0;w<7;w++){
+    hh+="<tr><th>"+WD[w]+"</th>";
+    for(let h=h0;h<h1;h++){
+      const kap=kapFilter(a,d=>wdVon(d)===w,mi=>mi>=h*60&&mi<h*60+60);
+      const q=kap?(grid[w+"|"+h]||0)/kap*100:0;
+      hh+='<td style="background:'+farbe(q)+';color:'+(dunkel(q)?"#fff":"var(--ink)")+
+        '" title="'+WD[w]+" "+z2(h)+":00, "+pz(q)+'">'+(kap?Math.round(q):"")+"</td>";
+    }
+    hh+="</tr>";
+  }
+  document.getElementById("heat").innerHTML=hh+"</tbody></table>";
+  document.getElementById("legende").innerHTML=
+    [0,15,30,35,40,45,60,80,100].map(q=>'<i style="background:'+farbe(q)+'" title="'+q+' %"></i>').join("")+
+    "&nbsp; rot unter 35 %, orange 35 bis 45 %, grün darüber";
+
+  const l6=DB.dateien.slice(-6).reverse();
+  document.getElementById("quellen").innerHTML="<strong>Zuletzt geladen</strong><ul>"+
+    l6.map(d=>"<li>"+d.name+" · "+new Date(d.zeit).toLocaleString("de-AT")+"</li>").join("")+
+    "</ul>"+DB.dateien.length+" Dateien insgesamt. Die Daten liegen nur in diesem Browser.";
+}
+
+/* ---------- Filterleisten ---------- */
+function auswahlMerken(){
+  try{localStorage.setItem(KEYW,JSON.stringify({clubs:[...(CLUBS||[])],
+    zeit:(document.getElementById("selZeit")||{}).value||""}));}catch(e){}
+}
+function filterBauen(){
+  const ids=Object.keys(DB.clubs).sort((x,y)=>
+    Object.keys(DB.clubs[y].deckung).length-Object.keys(DB.clubs[x].deckung).length);
+  if(!CLUBS){
+    let gesp=null; try{gesp=JSON.parse(localStorage.getItem(KEYW)||"null");}catch(e){}
+    const gueltig=gesp&&gesp.clubs?gesp.clubs.filter(x=>ids.includes(x)):[];
+    CLUBS=new Set(gueltig.length?gueltig:(ids.length?[ids[0]]:[]));
+  }else CLUBS=new Set([...CLUBS].filter(x=>ids.includes(x)));
+  if(!CLUBS.size&&ids.length)CLUBS=new Set([ids[0]]);
+  const box=document.getElementById("clubFilter");
+  box.innerHTML=ids.map(i=>'<button class="chip" data-id="'+i+'" aria-pressed="'+
+    CLUBS.has(i)+'">'+DB.clubs[i].name+"</button>").join("");
+  box.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+    const an=b.getAttribute("aria-pressed")==="true";
+    if(an&&CLUBS.size===1)return;
+    b.setAttribute("aria-pressed",String(!an));
+    if(an)CLUBS.delete(b.dataset.id); else CLUBS.add(b.dataset.id);
+    auswahlMerken();
+    document.getElementById("anlagenHinweis").textContent=
+      CLUBS.size>1?"("+CLUBS.size+" zusammengefasst)":"";
+    bereichBauen(); zeichne();
+  });
+  document.getElementById("anlagenHinweis").textContent=
+    CLUBS.size>1?"("+CLUBS.size+" zusammengefasst)":"";
+  bereichBauen();
+
+  const z=document.getElementById("selZeit"), alt=z.value;
+  z.innerHTML=zeitOptionen().map(o=>'<option value="'+o.v+'">'+o.t+"</option>").join("");
+  let wunsch=alt;
+  if(!wunsch){try{const g=JSON.parse(localStorage.getItem(KEYW)||"null");
+    if(g&&g.zeit)wunsch=g.zeit;}catch(e){}}
+  z.value=[...z.options].some(o=>o.value===wunsch)?wunsch:"90";
+  document.getElementById("leer").hidden=ids.length>0;
+  document.getElementById("haupt").hidden=ids.length===0;
+}
+function bereichBauen(){
+  const liste=[...CLUBS].map(i=>DB.clubs[i]).filter(Boolean);
+  const br=bereicheVon(liste);
+  const box=document.getElementById("bereichFilter");
+  document.getElementById("feldBereich").hidden=br.length<2;
+  const gleich=BEREICH&&BEREICH.size===br.length&&br.every(x=>BEREICH.has(x));
+  const an=b=>gleich?BEREICH.has(b):true;
+  box.innerHTML=br.map(b=>'<button class="chip" data-b="'+b+'" aria-pressed="'+an(b)+'">'+b+"</button>").join("");
+  BEREICH=new Set(br.filter(an));
+  box.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+    const ein=b.getAttribute("aria-pressed")==="true";
+    if(ein&&BEREICH.size===1)return;
+    b.setAttribute("aria-pressed",String(!ein));
+    if(ein)BEREICH.delete(b.dataset.b); else BEREICH.add(b.dataset.b);
+    zeichne();
+  });
+}
+
+
+/* ---------- Abgleich über GitHub ---------- */
+const KEYS="padel.sync.v1";
+let SYNC=null;
+function syncLaden(){try{SYNC=JSON.parse(localStorage.getItem(KEYS)||"null");}catch(e){SYNC=null;}}
+function syncSpeichern(){try{localStorage.setItem(KEYS,JSON.stringify(SYNC||{}));}catch(e){}}
+function syStatus(t,warn){
+  const e=document.getElementById("syStatus");
+  if(e)e.innerHTML=(warn?'<span style="color:var(--alarm)">':"<span>")+t+"</span>";
+}
+function b64von(txt){
+  const b=new TextEncoder().encode(txt); let r="", c=0x8000;
+  for(let i=0;i<b.length;i+=c) r+=String.fromCharCode.apply(null,b.subarray(i,i+c));
+  return btoa(r);
+}
+function ghUrl(pfad){
+  return "https://api.github.com/repos/"+SYNC.owner+"/"+SYNC.repo+"/contents/"+pfad;
+}
+function ghKopf(roh){
+  return {Authorization:"Bearer "+SYNC.token,
+          Accept: roh?"application/vnd.github.raw":"application/vnd.github+json",
+          "X-GitHub-Api-Version":"2022-11-28"};
+}
+const STANDPFAD="stand.json";
+
+async function standHolen(){
+  const r=await fetch(ghUrl(STANDPFAD),{headers:ghKopf(true),cache:"no-store"});
+  if(r.status===404)return null;
+  if(r.status===401||r.status===403)throw new Error("Zugang verweigert. Stimmt der Schlüssel?");
+  if(!r.ok)throw new Error("GitHub antwortet mit "+r.status);
+  return JSON.parse(await r.text());
+}
+async function shaVon(pfad){
+  const r=await fetch(ghUrl(pfad),{headers:ghKopf(false),cache:"no-store"});
+  if(r.status===404)return null;
+  if(!r.ok)return null;
+  const j=await r.json(); return j.sha||null;
+}
+async function ghSchreiben(pfad,text,nachricht){
+  const sha=await shaVon(pfad);
+  const koerper={message:nachricht,content:b64von(text)};
+  if(sha)koerper.sha=sha;
+  const r=await fetch(ghUrl(pfad),{method:"PUT",headers:
+    Object.assign(ghKopf(false),{"Content-Type":"application/json"}),
+    body:JSON.stringify(koerper)});
+  if(!r.ok){
+    let d=""; try{d=(await r.json()).message||"";}catch(e){}
+    throw new Error("Hochladen fehlgeschlagen ("+r.status+") "+d);
+  }
+}
+function standJetzt(){
+  return {padelSicherung:true,stand:new Date().toISOString(),
+          clubs:DB.clubs,dateien:DB.dateien};
+}
+async function ziehen(still){
+  if(!SYNC||!SYNC.token)return;
+  try{
+    syStatus("Lade …");
+    const fern=await standHolen();
+    if(!fern){syStatus("Auf GitHub liegt noch kein Stand. Lade einmal hoch.");return;}
+    const eigen=DB.stand||"";
+    if(fern.stand&&eigen&&fern.stand<=eigen){
+      syStatus("Schon aktuell (Stand "+new Date(eigen).toLocaleString("de-AT")+").");
+      return;
+    }
+    DB={clubs:fern.clubs||{},dateien:fern.dateien||[],stand:fern.stand||new Date().toISOString()};
+    CLUBS=null; sichern(); filterBauen(); zeichne();
+    syStatus("Geladen. Stand vom "+new Date(DB.stand).toLocaleString("de-AT")+".");
+  }catch(e){ syStatus(e.message,true); if(!still)console.error(e); }
+}
+async function schieben(){
+  if(!SYNC||!SYNC.token){syStatus("Erst Verbindung eintragen und speichern.",true);return;}
+  if(SYNC.nurLesen){syStatus("Dieses Gerät ist auf Nur-Lesen gestellt.",true);return;}
+  try{
+    syStatus("Lade hoch …");
+    const st=standJetzt();
+    await ghSchreiben(STANDPFAD,JSON.stringify(st),"Stand "+st.stand);
+    DB.stand=st.stand; sichern();
+    syStatus("Hochgeladen. Andere Geräte sehen das nach dem nächsten Öffnen.");
+  }catch(e){ syStatus(e.message,true); }
+}
+function syncUiFuellen(){
+  if(!SYNC)return;
+  document.getElementById("syOwner").value=SYNC.owner||"";
+  document.getElementById("syRepo").value=SYNC.repo||"";
+  document.getElementById("syToken").value=SYNC.token||"";
+  document.getElementById("syLesen").setAttribute("aria-pressed",String(!!SYNC.nurLesen));
+}
+
+/* ---------- Import ---------- */
+function dateienLesen(fl){
+  const log=document.getElementById("importLog");
+  let fertig=0, texte=[];
+  [...fl].forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      let res; try{res=leseDatei(JSON.parse(r.result),f.name);}
+      catch(e){res={ok:false,fehler:e.message};}
+      texte.push(res.ok?(res.sicherung?f.name+": Sicherung eingespielt"
+        :f.name+": "+res.n+" Belegungen übernommen")
+        :f.name+": nicht lesbar"+(res.fehler?" ("+res.fehler+")":""));
+      if(++fertig===fl.length){
+        DB.stand=new Date().toISOString(); sichern(); filterBauen(); zeichne();
+        log.innerHTML=texte.join("<br>");
+        if(SYNC&&SYNC.token&&!SYNC.nurLesen) schieben();
+      }
+    };
+    r.readAsText(f);
+  });
+}
+
+/* ---------- Start ---------- */
+laden(); syncLaden(); filterBauen();
+if(Object.keys(DB.clubs).length) zeichne();
+syncUiFuellen();
+if(SYNC&&SYNC.token) ziehen(true);
+document.getElementById("btnImport").onclick=()=>{
+  const b=document.getElementById("importBox"); b.hidden=!b.hidden;
+  document.getElementById("btnImport").setAttribute("aria-pressed",String(!b.hidden));
+};
+document.getElementById("btnWaehlen").onclick=()=>document.getElementById("datei").click();
+document.getElementById("datei").onchange=e=>dateienLesen(e.target.files);
+const dz=document.getElementById("drop");
+["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("an");}));
+["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("an");}));
+dz.addEventListener("drop",e=>dateienLesen(e.dataTransfer.files));
+document.getElementById("btnSperren").onclick=()=>{
+  SPERREN_AUS=!SPERREN_AUS;
+  document.getElementById("btnSperren").setAttribute("aria-pressed",String(SPERREN_AUS));
+  zeichne();
+};
+document.getElementById("btnSichern").onclick=()=>{
+  const d={padelSicherung:true,stand:new Date().toISOString(),clubs:DB.clubs,dateien:DB.dateien};
+  const b=new Blob([JSON.stringify(d)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);
+  a.download="padel_sicherung_"+heuteISO()+".json";
+  document.body.appendChild(a);a.click();a.remove();
+};
+document.getElementById("btnLeeren").onclick=()=>{
+  if(confirm("Alle gespeicherten Daten in diesem Browser löschen?")){
+    DB={clubs:{},dateien:[]}; CLUBS=null; sichern(); filterBauen();
+    document.getElementById("kopfInfo").textContent="Noch keine Daten geladen";
+  }
+};
+document.getElementById("btnSync").onclick=()=>{
+  const b=document.getElementById("syncBox"); b.hidden=!b.hidden;
+  document.getElementById("btnSync").setAttribute("aria-pressed",String(!b.hidden));
+  syncUiFuellen();
+};
+document.getElementById("syLesen").onclick=e=>{
+  const an=e.target.getAttribute("aria-pressed")==="true";
+  e.target.setAttribute("aria-pressed",String(!an));
+};
+document.getElementById("sySave").onclick=()=>{
+  SYNC={owner:document.getElementById("syOwner").value.trim(),
+        repo:document.getElementById("syRepo").value.trim(),
+        token:document.getElementById("syToken").value.trim(),
+        nurLesen:document.getElementById("syLesen").getAttribute("aria-pressed")==="true"};
+  if(!SYNC.owner||!SYNC.repo||!SYNC.token){syStatus("Bitte alle drei Felder ausfüllen.",true);return;}
+  syncSpeichern(); syStatus("Gespeichert. Prüfe Verbindung …"); ziehen();
+};
+document.getElementById("syPull").onclick=()=>ziehen();
+document.getElementById("syPush").onclick=()=>schieben();
+document.getElementById("syWeg").onclick=()=>{
+  SYNC=null; try{localStorage.removeItem(KEYS);}catch(e){}
+  ["syOwner","syRepo","syToken"].forEach(i=>document.getElementById(i).value="");
+  syStatus("Verbindung gelöscht. Die Daten in diesem Browser bleiben erhalten.");
+};
+document.getElementById("selZeit").onchange=()=>{auswahlMerken();zeichne();};
+document.getElementById("datVon").onchange=zeichne;
+document.getElementById("datBis").onchange=zeichne;
+</script>
+</body>
+</html>
