@@ -44,6 +44,8 @@ select,input[type=text],input[type=password],input[type=date],button{font-family
 select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--turf);outline-offset:1px}
 button{cursor:pointer}
 button.mini{padding:5px 9px;font-size:13px}
+button.weg{color:var(--alarm);border-color:var(--line)}
+button.weg:hover{border-color:var(--alarm)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;
   padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink2)}
@@ -220,7 +222,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17f";
+const VERSION="2026-09-17g";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -987,7 +989,7 @@ function schnellBauen(ids){
 }
 function orteBauen(){
   const ids=Object.keys(DB.clubs);
-  let h='<thead><tr><th>Anlage</th><th>Plätze</th><th>Daten ab</th><th>Bundesland</th><th>Art</th></tr></thead><tbody>';
+  let h='<thead><tr><th>Anlage</th><th>Plätze</th><th>Daten ab</th><th>Bundesland</th><th>Art</th><th></th></tr></thead><tbody>';
   ids.forEach(i=>{
     const c=DB.clubs[i];
     const eigen=alleCourts(c).some(x=>(c.courts[x]||{}).bereich);
@@ -997,9 +999,20 @@ function orteBauen(){
       "<td>"+(eigen?'<span class="sub">aus dem System</span>'
         :'<select data-feld="typ" data-id="'+i+'">'+ARTEN.map(b=>
          '<option value="'+b+'"'+((c.typ||"")===b?" selected":"")+">"+(b||"ohne Angabe")+"</option>").join("")+"</select>")+
-      "</td></tr>";
+      '</td><td><button class="mini weg" data-del="'+i+'">löschen</button></td></tr>';
   });
   document.getElementById("tabOrte").innerHTML=h+"</tbody>";
+  document.getElementById("tabOrte").querySelectorAll("button.weg").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.del, c=DB.clubs[id];
+    if(!c)return;
+    if(!confirm("Anlage \""+c.name+"\" endgültig aus dem Dashboard entfernen?\n\n"+
+       Object.keys(c.belegung).length+" gespeicherte Belegungen gehen verloren.\n"+
+       "Beim nächsten Abruf kommt sie zurück, falls sie noch als Favorit markiert ist."))return;
+    delete DB.clubs[id];
+    if(CLUBS)CLUBS.delete(id);
+    DB.stand=new Date().toISOString(); sichern(); filterBauen(); orteBauen(); zeichne();
+    if(SYNC&&SYNC.token&&!SYNC.nurLesen) schieben();
+  });
   document.getElementById("tabOrte").querySelectorAll("select").forEach(se=>se.onchange=()=>{
     const c=DB.clubs[se.dataset.id];
     if(se.dataset.feld==="typ"){ if(se.value)c.typ=se.value; else delete c.typ; }
