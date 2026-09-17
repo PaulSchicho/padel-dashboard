@@ -226,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17k";
+const VERSION="2026-09-17m";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -235,13 +235,47 @@ let DB={clubs:{},dateien:[]};
                 belegung:{"datum|cid|hhmm":[ab,typ]},
                 deckung:{datum:ab}, preise:[[ab,cid,wd,hhmm,p30]] } */
 
-function laden(){
-  try{const r=localStorage.getItem(KEY); if(r) DB=JSON.parse(r);}catch(e){console.warn(e);}
+/* Grosser Browserspeicher (IndexedDB), fasst hunderte Megabyte */
+function idbOeffnen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open("padelSpeicher",1);
+    r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains("kv")) r.result.createObjectStore("kv"); };
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+function idbLesen(k){
+  return idbOeffnen().then(db=>new Promise((res,rej)=>{
+    const a=db.transaction("kv","readonly").objectStore("kv").get(k);
+    a.onsuccess=()=>res(a.result); a.onerror=()=>rej(a.error);
+  }));
+}
+function idbSchreiben(k,v){
+  return idbOeffnen().then(db=>new Promise((res,rej)=>{
+    const a=db.transaction("kv","readwrite").objectStore("kv").put(v,k);
+    a.onsuccess=()=>res(true); a.onerror=()=>rej(a.error);
+  }));
+}
+let SPEICHERFEHLER=false, schreibLauf=null;
+async function laden(){
+  let d=null;
+  try{ d=await idbLesen("daten"); }catch(e){ console.warn("IndexedDB",e); }
+  if(!d){
+    /* einmalige Uebernahme aus dem alten, kleinen Speicher */
+    try{ const r=localStorage.getItem(KEY); if(r) d=JSON.parse(r); }catch(e){}
+    if(d) { try{ await idbSchreiben("daten",d); localStorage.removeItem(KEY); }catch(e){} }
+  }
+  if(d) DB=d;
   if(!DB.clubs)DB.clubs={}; if(!DB.dateien)DB.dateien=[];
 }
 function sichern(){
-  try{localStorage.setItem(KEY,JSON.stringify(DB));}
-  catch(e){meld("Speicher voll. Ältere Dateien werden nicht mehr behalten.",true);}
+  clearTimeout(schreibLauf);
+  schreibLauf=setTimeout(()=>{
+    idbSchreiben("daten",DB).then(()=>{ SPEICHERFEHLER=false; })
+      .catch(e=>{ SPEICHERFEHLER=true; console.error("Speichern fehlgeschlagen",e);
+        meld("Der Browser konnte die Daten nicht speichern: "+(e&&e.name||e)+
+             ". Bitte eine Sicherung herunterladen.",true); });
+  },300);
 }
 
 /* ---------- Hilfen ---------- */
@@ -975,7 +1009,8 @@ function zeichneIntern(){
       veraltet.slice(0,8).map(x=>x.name+(x.tage===null?"":" ("+x.tage+" T)")).join(", ")+
       (veraltet.length>8?" und weitere":"")+"</p>";
   }
-  du+='<p style="margin-top:6px">Dashboard-Version <strong>'+VERSION+'</strong></p>';
+  du+='<p style="margin-top:6px">Dashboard-Version <strong>'+VERSION+"</strong>"+
+    (SPEICHERFEHLER?' · <span style="color:var(--alarm)">Speichern im Browser schlägt fehl</span>':"")+"</p>";
   const l6=DB.dateien.slice(-5).reverse();
   du+='<p style="margin-top:10px">Vergangene Tage bleiben dauerhaft erhalten. '+
     "Für jeden Zeitslot gilt immer der zuletzt abgeholte Stand, damit Stornierungen richtig ankommen."+
@@ -1280,11 +1315,14 @@ function dateienLesen(fl){
 
 /* ---------- Start ---------- */
 document.getElementById("kopfVersion").textContent="Version "+VERSION;
-laden(); if(!DB.stand&&Object.keys(DB.clubs).length)DB.stand=new Date().toISOString();
-syncLaden(); filterBauen();
-if(Object.keys(DB.clubs).length) zeichne();
-syncUiFuellen();
-if(SYNC&&SYNC.token) ziehen(true);
+(async()=>{
+  await laden();
+  if(!DB.stand&&Object.keys(DB.clubs).length)DB.stand=new Date().toISOString();
+  syncLaden(); filterBauen();
+  if(Object.keys(DB.clubs).length) zeichne();
+  syncUiFuellen();
+  if(SYNC&&SYNC.token) ziehen(true);
+})();
 document.getElementById("btnImport").onclick=()=>{
   const b=document.getElementById("importBox"); b.hidden=!b.hidden;
   document.getElementById("btnImport").setAttribute("aria-pressed",String(!b.hidden));
@@ -1309,7 +1347,8 @@ document.getElementById("btnSichern").onclick=()=>{
 };
 document.getElementById("btnLeeren").onclick=()=>{
   if(confirm("Alle gespeicherten Daten in diesem Browser löschen?")){
-    DB={clubs:{},dateien:[]}; CLUBS=null; sichern(); filterBauen();
+    DB={clubs:{},dateien:[],stand:new Date().toISOString()}; CLUBS=null;
+    idbSchreiben("daten",DB).catch(()=>{}); filterBauen();
     document.getElementById("kopfInfo").textContent="Noch keine Daten geladen";
   }
 };
