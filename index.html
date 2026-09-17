@@ -29,7 +29,7 @@ body{background:var(--chalk);color:var(--ink);
   font-family:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
   font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums;
   -webkit-font-smoothing:antialiased}
-.wrap{max-width:1180px;margin:0 auto;padding:22px 18px 70px}
+.wrap{max-width:1560px;margin:0 auto;padding:22px 20px 70px}
 h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-.01em}
 h2{font-size:15px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
 .sub{color:var(--ink2);font-size:13px}
@@ -49,13 +49,17 @@ button.weg:hover{border-color:var(--alarm)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;
   padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink2)}
-.gruppe{display:flex;gap:8px;align-items:flex-start;margin-bottom:5px;flex-wrap:wrap}
-.glabel{font-size:11px;color:var(--ink2);font-weight:600;text-transform:uppercase;
-  letter-spacing:.04em;min-width:118px;padding-top:6px}
+.gruppe{margin-bottom:10px}
+.glabel{display:block;font-size:11px;color:var(--ink2);font-weight:600;text-transform:uppercase;
+  letter-spacing:.04em;margin-bottom:4px}
+.raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:4px}
+.raster .chip{width:100%;text-align:left;font-weight:500;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;display:block}
 .chip .pz{opacity:.55;font-size:11px;margin-left:2px}
 .trenner{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
 @media(max-width:700px){.glabel{min-width:100%;padding-top:2px}}
-.chip[aria-pressed=true]{background:var(--court);border-color:var(--court);color:#fff;font-weight:500}
+.chip[aria-pressed=true]{background:var(--court);border-color:var(--court);color:#fff}
+.chip{font-weight:500}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;
   background:var(--line);border:1px solid var(--line);margin-bottom:26px}
 .kpi{background:var(--panel);padding:13px 14px}
@@ -222,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17i";
+const VERSION="2026-09-17k";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -694,7 +698,8 @@ function linie(el,monate,serien){
 /* ---------- Zeitraum ---------- */
 function zeitOptionen(){
   const o=[{v:"gestern",t:"Gestern"},{v:"woche",t:"Diese Woche bis jetzt"},
-    {v:"vwoche",t:"Letzte Woche"},{v:"30",t:"Letzte 30 Tage"},{v:"90",t:"Letzte 90 Tage"},
+    {v:"vwoche",t:"Letzte Woche"},{v:"monat",t:"Dieser Monat bis jetzt"},
+    {v:"vmonat",t:"Letzter Monat"},{v:"30",t:"Letzte 30 Tage"},{v:"90",t:"Letzte 90 Tage"},
     {v:"365",t:"Letzte 12 Monate"},{v:"ytd",t:"Seit Jahresbeginn"}];
   const j=new Set();
   for(const id in DB.clubs) for(const t in DB.clubs[id].deckung) j.add(t.slice(0,4));
@@ -707,6 +712,13 @@ function grenzen(v){
   if(v==="gestern")return [g,g];
   if(v==="woche"){const mo=plusTage(h,-wdVon(h));return [mo,g<mo?mo:g];}
   if(v==="vwoche"){const mo=plusTage(plusTage(h,-wdVon(h)),-7);return [mo,plusTage(mo,6)];}
+  if(v==="monat"){const erster=h.slice(0,7)+"-01";return [erster,g<erster?erster:g];}
+  if(v==="vmonat"){
+    const d=new Date(h+"T12:00:00"); d.setDate(1); d.setMonth(d.getMonth()-1);
+    const von=d.getFullYear()+"-"+z2(d.getMonth()+1)+"-01";
+    const e=new Date(d); e.setMonth(e.getMonth()+1); e.setDate(0);
+    return [von, e.getFullYear()+"-"+z2(e.getMonth()+1)+"-"+z2(e.getDate())];
+  }
   if(v==="ytd")return [h.slice(0,4)+"-01-01",g];
   if(v==="alles"){let m=null;for(const id in DB.clubs){const t=ersterTag(DB.clubs[id]);
     if(t&&(!m||t<m))m=t;} return [m||h,g];}
@@ -820,11 +832,46 @@ function zeichneIntern(){
     const kap=kapFilter(aM,d=>d.slice(0,7)===mm,null);
     if(kap) wGes[mm]=(mz[mm]||0)/kap*100;
   });
-  serien.unshift({name:aM.teile.length>1?"Alle gewählten":(aM.teile[0]?aM.teile[0].club.name:"Gesamt"),werte:wGes});
+  if(aM.teile.length>1) serien.unshift({name:"Alle gewählten",werte:wGes});
   document.getElementById("monatSub").textContent=
     "Immer die letzten vier Monate, unabhängig vom gewählten Zeitraum oben";
-  if(monate.length) linie(document.getElementById("monatChart"),monate,serien);
-  else document.getElementById("monatChart").innerHTML='<p class="sub">Noch keine abgeschlossenen Monate.</p>';
+  const ziel=document.getElementById("monatChart");
+  if(!monate.length){ ziel.innerHTML='<p class="sub">Noch keine abgeschlossenen Monate.</p>'; }
+  else{
+    /* Balken für die Gesamtheit der Auswahl */
+    let hh='<div class="bars" style="margin-bottom:16px">';
+    monate.forEach(mm=>{
+      const q=wGes[mm]||0;
+      const st2=(mz[mm]||0)/2;
+      hh+='<div class="bar"><span class="t">'+MON[+mm.slice(5,7)-1]+" "+mm.slice(0,4)+"</span>"+
+        '<span class="g"><i style="width:'+Math.max(0,Math.min(100,q))+'%;background:'+farbe(q)+'"></i></span>'+
+        '<span class="v">'+pz(q)+"<br><small>"+std(st2)+" h</small></span></div>";
+    });
+    hh+="</div>";
+    /* Matrix je Anlage, wenn mehrere gewählt sind */
+    if(serien.length>1){
+      hh+='<div class="scroll"><table><thead><tr><th>Anlage</th>'+
+        monate.map(mm=>"<th>"+MON[+mm.slice(5,7)-1]+" "+mm.slice(2,4)+"</th>").join("")+
+        "<th>Trend</th></tr></thead><tbody>";
+      serien.slice().sort((a,b)=>{
+        const la=a.werte[monate[monate.length-1]]||0, lb=b.werte[monate[monate.length-1]]||0;
+        return lb-la;
+      }).forEach(se=>{
+        const w=monate.map(mm=>se.werte[mm]);
+        const ersterW=w.find(x=>x!=null), letzterW=[...w].reverse().find(x=>x!=null);
+        const diff=(ersterW!=null&&letzterW!=null)?letzterW-ersterW:null;
+        hh+="<tr><td>"+se.name+"</td>"+
+          w.map(q=>q==null?'<td class="sub">–</td>':
+            '<td class="q" style="background:'+farbe(q)+';color:'+(q>0&&q<12?"#fff":"var(--ink)")+
+            '">'+Math.round(q)+" %</td>").join("")+
+          '<td style="font-weight:600;color:'+(diff==null?"var(--ink2)":(diff>=0?"var(--turf)":"var(--alarm)"))+'">'+
+          (diff==null?"–":(diff>=0?"+":"")+diff.toLocaleString("de-AT",{maximumFractionDigits:0})+" %")+
+          "</td></tr>";
+      });
+      hh+="</tbody></table></div>";
+    }
+    ziel.innerHTML=hh;
+  }
 
   const letzte=monate;
   let tm='<thead><tr><th>Monat</th><th>Tage</th><th>belegt</th><th>möglich</th><th>Auslastung</th><th>Umsatz</th><th>€/Tag</th></tr></thead><tbody>';
@@ -893,17 +940,41 @@ function zeichneIntern(){
     [0,15,30,35,40,45,60,80,100].map(q=>'<i style="background:'+farbe(q)+'" title="'+q+' %"></i>').join("")+
     "&nbsp; rot unter 35 %, orange 35 bis 45 %, grün darüber";
 
+  const jetzt=Date.now();
+  const alterTage=iso=>iso?Math.floor((jetzt-new Date(iso).getTime())/864e5):null;
+  const zelle=iso=>{
+    if(!iso)return '<td style="color:var(--alarm)">nie</td>';
+    const t=alterTage(iso);
+    const f=t>14?"var(--alarm)":(t>7?"#D9822B":"var(--turf)");
+    return '<td style="color:'+f+';font-weight:'+(t>7?600:400)+'">'+
+      new Date(iso).toLocaleDateString("de-AT")+
+      (t>0?' <span style="opacity:.7">('+t+" T)</span>":"")+"</td>";
+  };
+  let veraltet=[];
   let du='<strong>Datenbestand</strong><div class="scroll"><table><thead><tr>'+
-    "<th>Anlage</th><th>Bundesland</th><th>Zeitraum</th><th>Tage</th><th>Belegungen</th><th>beobachtet seit</th></tr></thead><tbody>";
-  Object.keys(DB.clubs).forEach(i=>{
+    "<th>Anlage</th><th>Bundesland</th><th>Daten ab</th><th>Tage</th><th>Belegungen</th>"+
+    "<th>Auslastung geholt</th><th>Preise geholt</th><th>beobachtet seit</th></tr></thead><tbody>";
+  Object.keys(DB.clubs).sort((x,y)=>DB.clubs[x].name.localeCompare(DB.clubs[y].name,"de")).forEach(i=>{
     const c=DB.clubs[i];
     const tg=Object.keys(c.deckung).sort();
     const n=Object.keys(c.belegung).length;
+    let letzteB=null; for(const t in c.deckung){const v=c.deckung[t]; if(!letzteB||v>letzteB)letzteB=v;}
+    let letzteP=null; for(const r of (c.preise||[])){ if(!letzteP||r[0]>letzteP)letzteP=r[0]; }
+    const aB=alterTage(letzteB);
+    if(aB===null||aB>7) veraltet.push({name:c.name,tage:aB});
     du+="<tr><td>"+c.name+"</td><td>"+regionVon(c)+"</td><td>"+
-      (tg.length?tg[0]+" bis "+tg[tg.length-1]:"–")+"</td><td>"+tg.length+"</td><td>"+
-      std(n)+"</td><td>"+(c.seit?new Date(c.seit).toLocaleDateString("de-AT"):"–")+"</td></tr>";
+      (tg.length?tg[0]:"–")+"</td><td>"+tg.length+"</td><td>"+std(n)+"</td>"+
+      zelle(letzteB)+zelle(letzteP)+
+      "<td>"+(c.seit?new Date(c.seit).toLocaleDateString("de-AT"):"–")+"</td></tr>";
   });
   du+="</tbody></table></div>";
+  if(veraltet.length){
+    veraltet.sort((a,b)=>(b.tage===null?999:b.tage)-(a.tage===null?999:a.tage));
+    du+='<p style="margin-top:8px"><strong style="color:var(--alarm)">'+veraltet.length+
+      (veraltet.length===1?" Anlage":" Anlagen")+" seit über einer Woche nicht aktualisiert:</strong> "+
+      veraltet.slice(0,8).map(x=>x.name+(x.tage===null?"":" ("+x.tage+" T)")).join(", ")+
+      (veraltet.length>8?" und weitere":"")+"</p>";
+  }
   du+='<p style="margin-top:6px">Dashboard-Version <strong>'+VERSION+'</strong></p>';
   const l6=DB.dateien.slice(-5).reverse();
   du+='<p style="margin-top:10px">Vergangene Tage bleiben dauerhaft erhalten. '+
@@ -926,7 +997,15 @@ function filterBauen(){
   if(!CLUBS){
     let gesp=null; try{gesp=JSON.parse(localStorage.getItem(KEYW)||"null");}catch(e){}
     const gueltig=gesp&&gesp.clubs?gesp.clubs.filter(x=>ids.includes(x)):[];
-    CLUBS=new Set(gueltig.length?gueltig:(ids.length?[ids[0]]:[]));
+    if(gueltig.length) CLUBS=new Set(gueltig);
+    else {
+      const wunsch=["racket sport center","padellounge","puntigam","raaba","wildon"];
+      const treffer=ids.filter(i=>{
+        const n=(DB.clubs[i].name||"").toLowerCase();
+        return wunsch.some(w=>n.includes(w));
+      });
+      CLUBS=new Set(treffer.length?treffer:(ids.length?[ids[0]]:[]));
+    }
   }else CLUBS=new Set([...CLUBS].filter(x=>ids.includes(x)));
   if(!CLUBS.size&&ids.length)CLUBS=new Set([ids[0]]);
   const box=document.getElementById("clubFilter");
@@ -936,7 +1015,7 @@ function filterBauen(){
     .concat(Object.keys(nachRegion).filter(r=>!BUNDESLAENDER.includes(r)).sort());
   box.innerHTML=reihenfolge.map(r=>{
     const li=nachRegion[r].sort((x,y)=>DB.clubs[x].name.localeCompare(DB.clubs[y].name,"de"));
-    return '<div class="gruppe"><span class="glabel">'+r+" ("+li.length+')</span><div class="chips">'+
+    return '<div class="gruppe"><span class="glabel">'+r+" ("+li.length+')</span><div class="raster">'+
       li.map(i=>'<button class="chip" data-id="'+i+'" aria-pressed="'+CLUBS.has(i)+'">'+
         DB.clubs[i].name+' <span class="pz">'+alleCourts(DB.clubs[i]).length+"</span></button>").join("")+
       "</div></div>";
