@@ -94,6 +94,7 @@ svg text{fill:var(--ink2);font-size:11px}
   <div>
     <h1>Padel Auslastung</h1>
     <div class="sub" id="kopfInfo">Noch keine Daten geladen</div>
+    <div class="sub" id="kopfVersion" style="font-size:11px;opacity:.7"></div>
   </div>
   <div class="chips">
     <button class="chip" id="btnImport" aria-pressed="false">Daten hinzufügen</button>
@@ -218,6 +219,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
+const VERSION="2026-09-17c";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -894,6 +896,7 @@ function zeichneIntern(){
       std(n)+"</td><td>"+(c.seit?new Date(c.seit).toLocaleDateString("de-AT"):"–")+"</td></tr>";
   });
   du+="</tbody></table></div>";
+  du+='<p style="margin-top:6px">Dashboard-Version <strong>'+VERSION+'</strong></p>';
   const l6=DB.dateien.slice(-5).reverse();
   du+='<p style="margin-top:10px">Vergangene Tage bleiben dauerhaft erhalten. '+
     "Für jeden Zeitslot gilt immer der zuletzt abgeholte Stand, damit Stornierungen richtig ankommen."+
@@ -1127,6 +1130,7 @@ function dateienLesen(fl){
 }
 
 /* ---------- Start ---------- */
+document.getElementById("kopfVersion").textContent="Version "+VERSION;
 laden(); syncLaden(); filterBauen();
 if(Object.keys(DB.clubs).length) zeichne();
 syncUiFuellen();
