@@ -222,7 +222,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17h";
+const VERSION="2026-09-17i";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -349,8 +349,9 @@ function leseDatei(obj,name){
   let clubsBeruehrt=new Set(), n=0;
 
   if(obj&&obj.padelSicherung&&obj.clubs){
-    DB={clubs:obj.clubs,dateien:obj.dateien||[]};
-    return {ok:true,n:0,clubs:Object.keys(obj.clubs),sicherung:true};
+    const behalten=zusammenfuehren(obj);
+    DB.stand=new Date().toISOString();
+    return {ok:true,n:0,clubs:Object.keys(DB.clubs),sicherung:true,behalten:behalten};
   }
 
   /* Sammeldatei: mehrere Anlagen in einer Datei */
@@ -1121,6 +1122,21 @@ async function ghSchreiben(pfad,text,nachricht){
     throw new Error("Hochladen fehlgeschlagen ("+r.status+") "+d);
   }
 }
+function zusammenfuehren(fern){
+  const neu=Object.assign({},fern.clubs||{});
+  const alt=DB.clubs||{};
+  let behalten=0;
+  for(const id in alt){
+    if(!neu[id]){ neu[id]=alt[id]; behalten++; continue; }
+    /* Anlage in beiden: den umfangreicheren Bestand nehmen */
+    const a=Object.keys(alt[id].belegung||{}).length;
+    const b=Object.keys(neu[id].belegung||{}).length;
+    if(a>b){ neu[id]=alt[id]; behalten++; }
+  }
+  DB={clubs:neu,dateien:(fern.dateien||[]).concat(DB.dateien||[]).slice(-40),
+      stand:fern.stand||new Date().toISOString()};
+  return behalten;
+}
 function standJetzt(){
   return {padelSicherung:true,stand:new Date().toISOString(),
           clubs:DB.clubs,dateien:DB.dateien};
@@ -1136,9 +1152,10 @@ async function ziehen(still){
       syStatus("Schon aktuell (Stand "+new Date(eigen).toLocaleString("de-AT")+").");
       return;
     }
-    DB={clubs:fern.clubs||{},dateien:fern.dateien||[],stand:fern.stand||new Date().toISOString()};
+    const behalten=zusammenfuehren(fern);
     CLUBS=null; sichern(); filterBauen(); zeichne();
-    syStatus("Geladen. Stand vom "+new Date(DB.stand).toLocaleString("de-AT")+".");
+    syStatus("Geladen. Stand vom "+new Date(DB.stand).toLocaleString("de-AT")+"."+
+      (behalten?" "+behalten+" nur lokal vorhandene Anlagen wurden behalten.":""));
   }catch(e){ syStatus(e.message,true); if(!still)console.error(e); }
 }
 async function schieben(){
@@ -1184,7 +1201,8 @@ function dateienLesen(fl){
 
 /* ---------- Start ---------- */
 document.getElementById("kopfVersion").textContent="Version "+VERSION;
-laden(); syncLaden(); filterBauen();
+laden(); if(!DB.stand&&Object.keys(DB.clubs).length)DB.stand=new Date().toISOString();
+syncLaden(); filterBauen();
 if(Object.keys(DB.clubs).length) zeichne();
 syncUiFuellen();
 if(SYNC&&SYNC.token) ziehen(true);
