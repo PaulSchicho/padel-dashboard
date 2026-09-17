@@ -222,7 +222,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17g";
+const VERSION="2026-09-17h";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -481,8 +481,10 @@ function courtListe(c){
 }
 function courtInfo(c,cid){
   const o=c.courts[cid]||{};
-  return {name:o.name||("Platz "+cid),von:o.von!=null?o.von:7*60,
-          bisStart:o.bisStart!=null?o.bisStart:22*60,raster:o.raster||60,
+  const von=(o.von!=null&&!isNaN(o.von))?o.von:7*60;
+  let bis=(o.bisStart!=null&&!isNaN(o.bisStart))?o.bisStart:22*60;
+  if(bis<von)bis+=1440;            /* letzter Start nach Mitternacht */
+  return {name:o.name||("Platz "+cid),von:von,bisStart:bis,raster:o.raster||60,
           bereich:o.bereich||"",belag:o.belag||""};
 }
 function zellenCourt(c,cid){const i=courtInfo(c,cid);
