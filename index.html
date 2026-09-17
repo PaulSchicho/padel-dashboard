@@ -219,7 +219,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17c";
+const VERSION="2026-09-17d";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -400,7 +400,8 @@ function leseDatei(obj,name){
       const o=c.courts[m[0]]=c.courts[m[0]]||{};
       if(m[1])o.name=m[1];
       o.von=hhmm2min(m[2]); o.bisStart=hhmm2min(m[3]);
-      if(m[4])o.bereich=m[4]; if(m[5])o.belag=m[5];
+      o.bereich=m[4]||"";
+      if(m[5])o.belag=m[5];
     }
     if(obj.preise&&obj.preise.length){
       const neu=[];
@@ -453,7 +454,13 @@ function alleCourts(c){
   for(const k in c.belegung) ids.add(k.split("|")[1]);
   return [...ids];
 }
-function bereichVon(c,cid){const o=c.courts[cid];return (o&&o.bereich)?o.bereich:"ohne Angabe";}
+const ARTEN=["","Indoor","Outdoor","Indoor & Outdoor"];
+function bereichVon(c,cid){
+  const o=c.courts[cid];
+  if(o&&o.bereich)return o.bereich;
+  if(c.typ)return c.typ;
+  return "ohne Angabe";
+}
 function bereicheVon(liste){
   const b=new Set();
   for(const c of liste) for(const cid of alleCourts(c)) b.add(bereichVon(c,cid));
@@ -967,16 +974,23 @@ function schnellBauen(ids){
 }
 function orteBauen(){
   const ids=Object.keys(DB.clubs);
-  let h='<thead><tr><th>Anlage</th><th>Plätze</th><th>Daten ab</th><th>Bundesland</th></tr></thead><tbody>';
+  let h='<thead><tr><th>Anlage</th><th>Plätze</th><th>Daten ab</th><th>Bundesland</th><th>Art</th></tr></thead><tbody>';
   ids.forEach(i=>{
     const c=DB.clubs[i];
+    const eigen=alleCourts(c).some(x=>(c.courts[x]||{}).bereich);
     h+="<tr><td>"+c.name+"</td><td>"+alleCourts(c).length+"</td><td>"+(ersterTag(c)||"–")+
-      '</td><td><select data-id="'+i+'">'+BUNDESLAENDER.map(b=>
-      '<option'+(regionVon(c)===b?" selected":"")+">"+b+"</option>").join("")+"</select></td></tr>";
+      '</td><td><select data-feld="region" data-id="'+i+'">'+BUNDESLAENDER.map(b=>
+      '<option'+(regionVon(c)===b?" selected":"")+">"+b+"</option>").join("")+"</select></td>"+
+      "<td>"+(eigen?'<span class="sub">aus dem System</span>'
+        :'<select data-feld="typ" data-id="'+i+'">'+ARTEN.map(b=>
+         '<option value="'+b+'"'+((c.typ||"")===b?" selected":"")+">"+(b||"ohne Angabe")+"</option>").join("")+"</select>")+
+      "</td></tr>";
   });
   document.getElementById("tabOrte").innerHTML=h+"</tbody>";
   document.getElementById("tabOrte").querySelectorAll("select").forEach(se=>se.onchange=()=>{
-    DB.clubs[se.dataset.id].region=se.value;
+    const c=DB.clubs[se.dataset.id];
+    if(se.dataset.feld==="typ"){ if(se.value)c.typ=se.value; else delete c.typ; }
+    else c.region=se.value;
     DB.stand=new Date().toISOString(); sichern(); filterBauen(); zeichne();
     if(SYNC&&SYNC.token&&!SYNC.nurLesen) schieben();
   });
