@@ -47,6 +47,12 @@ button.mini{padding:5px 9px;font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;
   padding:5px 11px;font-size:13px;cursor:pointer;color:var(--ink2)}
+.gruppe{display:flex;gap:8px;align-items:flex-start;margin-bottom:5px;flex-wrap:wrap}
+.glabel{font-size:11px;color:var(--ink2);font-weight:600;text-transform:uppercase;
+  letter-spacing:.04em;min-width:118px;padding-top:6px}
+.chip .pz{opacity:.55;font-size:11px;margin-left:2px}
+.trenner{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+@media(max-width:700px){.glabel{min-width:100%;padding-top:2px}}
 .chip[aria-pressed=true]{background:var(--court);border-color:var(--court);color:#fff;font-weight:500}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;
   background:var(--line);border:1px solid var(--line);margin-bottom:26px}
@@ -193,13 +199,8 @@ svg text{fill:var(--ink2);font-size:11px}
 
   <section id="secVergleich" hidden>
     <h2>Anlagen im Vergleich</h2>
-    <div class="sub">Gleicher Zeitraum, sortiert nach Auslastung</div>
+    <div class="sub">Gleicher Zeitraum, sortiert nach Auslastung. Die Zeile Gesamt fasst alle Anlagen mit Daten zusammen.</div>
     <div class="scroll"><table id="tabVergleich"></table></div>
-  </section>
-
-  <section>
-    <h2>Plätze</h2>
-    <div class="scroll"><table id="tabPlatz"></table></div>
   </section>
 
   <section>
@@ -219,7 +220,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17e";
+const VERSION="2026-09-17f";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -843,44 +844,28 @@ function zeichneIntern(){
       return {id,name:DB.clubs[id].name,b};
     }).sort((x,y)=>y.b.quote-x.b.quote);
     let tv='<thead><tr><th>Anlage</th><th>Plätze</th><th>Öffnung</th><th>Tage</th><th>Auslastung</th><th>belegt / möglich</th><th>Ø €/h</th><th>Umsatz/Tag</th></tr></thead><tbody>';
+    let sPl=0,sBel=0,sKap=0,sUm=0,sStd=0,sTage=0,nA=0,uProTag=0;
     zeilen.forEach(r=>{
       const b=r.b, n=b.tage.length;
-      const sp=b.stdMitPreis?b.umsatz/b.stdMitPreis:0;
+      const std2=b.stdMitPreis+b.geschaetzt;
+      const sp=std2?b.umsatz/std2:0;
+      if(n){ sPl+=b.courts; sBel+=b.stunden; sKap+=b.kapStunden; sUm+=b.umsatz;
+             sStd+=std2; sTage+=n; nA++; uProTag+=b.umsatz/n; }
       tv+="<tr><td>"+(CLUBS.has(r.id)?"<strong>"+r.name+"</strong>":r.name)+"</td><td>"+b.courts+
         "</td><td>"+(b.oBis?uhr(b.oVon)+"–"+uhr(b.oBis):"–")+"</td><td>"+n+"</td>"+
         '<td class="q" style="color:'+farbe(b.quote)+'">'+(n?pz(b.quote):"–")+"</td><td>"+
         (n?std(b.stunden)+" / "+std(b.kapStunden)+" h":"–")+"</td><td>"+
-        (b.stdMitPreis?eur2(sp):"–")+"</td><td>"+
+        (std2?eur2(sp):"–")+"</td><td>"+
         (n&&b.umsatz?eur(b.umsatz/n):"–")+"</td></tr>";
     });
-    document.getElementById("tabVergleich").innerHTML=tv+"</tbody>";
+    const qGes=sKap?sBel/sKap*100:0;
+    tv+='</tbody><tfoot><tr style="border-top:2px solid var(--ink2);font-weight:600">'+
+      "<td>Gesamt · "+nA+" Anlagen</td><td>"+sPl+"</td><td>–</td><td>"+
+      (nA?Math.round(sTage/nA):0)+' Ø</td><td class="q" style="color:'+farbe(qGes)+'">'+
+      pz(qGes)+"</td><td>"+std(sBel)+" / "+std(sKap)+" h</td><td>"+
+      (sStd?eur2(sUm/sStd):"–")+"</td><td>"+(sUm?eur(uProTag):"–")+"</td></tr></tfoot>";
+    document.getElementById("tabVergleich").innerHTML=tv;
   }
-
-  /* Plätze */
-  const mehr=a.teile.length>1;
-  let tp='<thead><tr>'+(mehr?"<th>Anlage</th>":"")+
-    '<th>Platz</th><th>belegt</th><th>Auslastung</th><th>Umsatz</th><th>€/Stunde</th><th>Öffnung</th><th>Bereich</th><th>Raster</th></tr></thead><tbody>';
-  const zeilenP=[];
-  a.teile.forEach(t=>t.liste.forEach(cid=>{
-    const zs=t.zs.filter(z=>z.cid===cid);
-    const tage=t.tage.filter(d=>!t.sp.has(d+"|"+cid)).length;
-    const kap=tage*zellenCourt(t.club,cid);
-    let um=0,mitP=0;
-    zs.forEach(z=>{const r=preisFuer(t.club,cid,z.datum,min2hhmm(z.min));
-      if(r.p!=null){um+=r.p;mitP+=0.5;}});
-    const i=courtInfo(t.club,cid);
-    zeilenP.push({club:t.club.name,name:i.name,h:zs.length/2,kap:kap/2,
-      q:kap?zs.length/kap*100:0,um,eh:mitP?um/mitP:null,
-      oe:uhr(i.von)+"–"+uhr(i.bisStart+i.raster),br:bereichVon(t.club,cid),r:i.raster});
-  }));
-  zeilenP.sort((x,y)=>y.q-x.q).forEach(r=>{
-    tp+="<tr>"+(mehr?"<td>"+r.club+"</td>":"")+"<td>"+r.name+"</td><td>"+
-      std(r.h)+" / "+std(r.kap)+" h</td>"+
-      '<td class="q" style="color:'+farbe(r.q)+'">'+pz(r.q)+"</td><td>"+
-      (r.um?eur(r.um):"–")+"</td><td>"+(r.eh?eur2(r.eh):"–")+"</td><td>"+
-      r.oe+"</td><td>"+r.br+"</td><td>"+r.r+" min</td></tr>";
-  });
-  document.getElementById("tabPlatz").innerHTML=tp+"</tbody>";
 
   /* Heatmap */
   const h0=Math.floor(a.oVon/60), h1=Math.ceil(a.oBis/60);
@@ -940,8 +925,17 @@ function filterBauen(){
   }else CLUBS=new Set([...CLUBS].filter(x=>ids.includes(x)));
   if(!CLUBS.size&&ids.length)CLUBS=new Set([ids[0]]);
   const box=document.getElementById("clubFilter");
-  box.innerHTML=ids.map(i=>'<button class="chip" data-id="'+i+'" aria-pressed="'+
-    CLUBS.has(i)+'">'+DB.clubs[i].name+"</button>").join("");
+  const nachRegion={};
+  ids.forEach(i=>{const r=regionVon(DB.clubs[i]);(nachRegion[r]=nachRegion[r]||[]).push(i);});
+  const reihenfolge=BUNDESLAENDER.filter(b=>nachRegion[b])
+    .concat(Object.keys(nachRegion).filter(r=>!BUNDESLAENDER.includes(r)).sort());
+  box.innerHTML=reihenfolge.map(r=>{
+    const li=nachRegion[r].sort((x,y)=>DB.clubs[x].name.localeCompare(DB.clubs[y].name,"de"));
+    return '<div class="gruppe"><span class="glabel">'+r+" ("+li.length+')</span><div class="chips">'+
+      li.map(i=>'<button class="chip" data-id="'+i+'" aria-pressed="'+CLUBS.has(i)+'">'+
+        DB.clubs[i].name+' <span class="pz">'+alleCourts(DB.clubs[i]).length+"</span></button>").join("")+
+      "</div></div>";
+  }).join("");
   box.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
     const an=b.getAttribute("aria-pressed")==="true";
     if(an&&CLUBS.size===1)return;
@@ -971,14 +965,22 @@ function schnellBauen(ids){
   const regionen={};
   ids.forEach(i=>{const r=regionVon(DB.clubs[i]);(regionen[r]=regionen[r]||[]).push(i);});
   const namen=Object.keys(regionen).sort();
+  const ketten={};
+  ids.forEach(i=>{const k=ketteVon(DB.clubs[i]); if(k)(ketten[k]=ketten[k]||[]).push(i);});
+  const kNamen=Object.keys(ketten).filter(k=>ketten[k].length>1).sort();
   let h='<button class="chip" data-alle="1" aria-pressed="'+(CLUBS.size===ids.length)+'">Alle ('+ids.length+")</button>";
   if(namen.length>1) h+=namen.map(r=>{
     const an=regionen[r].every(x=>CLUBS.has(x))&&CLUBS.size===regionen[r].length;
     return '<button class="chip" data-r="'+r+'" aria-pressed="'+an+'">'+r+" ("+regionen[r].length+")</button>";
   }).join("");
+  if(kNamen.length) h+='<span class="trenner"></span>'+kNamen.map(k=>{
+    const an=ketten[k].every(x=>CLUBS.has(x))&&CLUBS.size===ketten[k].length;
+    return '<button class="chip" data-k="'+k+'" aria-pressed="'+an+'">'+k+" ("+ketten[k].length+")</button>";
+  }).join("");
   box.innerHTML=h;
   box.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
     if(b.dataset.alle) CLUBS=new Set(ids);
+    else if(b.dataset.k) CLUBS=new Set(ketten[b.dataset.k]);
     else CLUBS=new Set(regionen[b.dataset.r]);
     auswahlMerken(); filterBauen(); zeichne();
   });
@@ -1043,6 +1045,17 @@ function regionRaten(c){
   return "Anderes";
 }
 function regionVon(c){ return c.region||regionRaten(c); }
+function ketteVon(c){
+  const n=(c.name||"").trim();
+  const m=n.match(/^([A-Za-zÄÖÜäöüß][\wÄÖÜäöüß\-\.]{2,})/);
+  if(!m)return "";
+  let k=m[1].replace(/[\-\.]+$/,"");
+  if(/^padelzone$/i.test(k))return "PADELZONE";
+  if(/^tapedesign$/i.test(k))return "TAPEDESIGN";
+  if(/^smash$/i.test(k))return "smash";
+  if(/^padelbase$/i.test(k))return "PADELBASE";
+  return k;
+}
 
 /* ---------- Abgleich über GitHub ---------- */
 const KEYS="padel.sync.v1";
