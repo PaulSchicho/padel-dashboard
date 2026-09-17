@@ -219,7 +219,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17d";
+const VERSION="2026-09-17e";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -311,8 +311,9 @@ function kalenderHTML(c,ab,html){
     if(!c.courts[cid])c.courts[cid]={};
     const o=c.courts[cid];
     if(nm&&nm.textContent.trim())o.name=nm.textContent.trim();
-    o.von=hhmm2min(td.getAttribute("data-firststart"));
-    o.bisStart=hhmm2min(td.getAttribute("data-laststart"));
+    const v2=hhmm2min(td.getAttribute("data-firststart"));
+    const b2=hhmm2min(td.getAttribute("data-laststart"));
+    if(!isNaN(v2)&&!isNaN(b2)){ o.von=v2; o.bisStart=b2<v2?b2+1440:b2; }
     if(tr){o.bereich=tr.getAttribute("data-area")||o.bereich;
            o.belag=tr.getAttribute("data-surface")||o.belag;}
   });
@@ -399,7 +400,8 @@ function leseDatei(obj,name){
     if(obj.meta) for(const m of obj.meta){
       const o=c.courts[m[0]]=c.courts[m[0]]||{};
       if(m[1])o.name=m[1];
-      o.von=hhmm2min(m[2]); o.bisStart=hhmm2min(m[3]);
+      const v1=hhmm2min(m[2]), b1=hhmm2min(m[3]);
+      if(!isNaN(v1)&&!isNaN(b1)) { o.von=v1; o.bisStart=b1<v1?b1+1440:b1; }
       o.bereich=m[4]||"";
       if(m[5])o.belag=m[5];
     }
@@ -435,7 +437,9 @@ function leseDatei(obj,name){
 
 /* ---------- Rechnen ---------- */
 const z2=n=>String(n).padStart(2,"0");
-function hhmm2min(s){s=String(s).padStart(4,"0");return +s.slice(0,2)*60 + +s.slice(2);}
+function hhmm2min(s){s=String(s||"").trim();
+  if(!/^\d{3,4}$/.test(s))return NaN;
+  s=s.padStart(4,"0");return +s.slice(0,2)*60 + +s.slice(2);}
 function min2hhmm(m){return z2(Math.floor(m/60))+z2(m%60);}
 function uhr(m){if(m>=1440&&m%1440===0)return "24:00";return z2(Math.floor(m/60)%24)+":"+z2(m%60);}
 function heuteISO(){const d=new Date();return d.getFullYear()+"-"+z2(d.getMonth()+1)+"-"+z2(d.getDate());}
@@ -531,7 +535,14 @@ function sperrenVon(c,liste){
   const zaehl={};
   for(const k in c.belegung){const t=k.split("|");zaehl[t[0]+"|"+t[1]]=(zaehl[t[0]+"|"+t[1]]||0)+1;}
   const tage=Object.keys(c.deckung).sort().filter(t=>t<heuteISO());
+  const summe={}; let gesamt=0;
   for(const cid of liste){
+    let n=0; for(const t of tage) n+=zaehl[t+"|"+cid]||0;
+    summe[cid]=n; gesamt+=n;
+  }
+  for(const cid of liste){
+    /* Platz ohne jede Buchung im Zeitraum, waehrend die Anlage sonst laeuft */
+    if(summe[cid]===0&&gesamt>0){ tage.forEach(t=>sp.add(t+"|"+cid)); continue; }
     let lauf=[]; const zu=()=>{if(lauf.length>=7)lauf.forEach(t=>sp.add(t+"|"+cid));lauf=[];};
     for(const t of tage){
       const e=zaehl[t+"|"+cid]||0; let rest=0;
