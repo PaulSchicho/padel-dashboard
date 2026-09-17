@@ -98,11 +98,20 @@ svg text{fill:var(--ink2);font-size:11px}
   <div class="chips">
     <button class="chip" id="btnImport" aria-pressed="false">Daten hinzufügen</button>
     <button class="chip" id="btnSperren" aria-pressed="true">Sperrzeiten ausklammern</button>
+    <button class="chip" id="btnOrte" aria-pressed="false">Anlagen zuordnen</button>
     <button class="chip" id="btnSync" aria-pressed="false">Synchronisierung</button>
     <button class="chip" id="btnSichern" aria-pressed="false">Sicherung speichern</button>
     <button class="chip" id="btnLeeren" aria-pressed="false">Alles löschen</button>
   </div>
 </header>
+
+<div id="orteBox" hidden style="margin-bottom:22px">
+  <div class="drop" style="text-align:left">
+    <div style="font-weight:600;color:var(--ink);margin-bottom:4px">Anlagen einem Bundesland zuordnen</div>
+    <div class="sub" style="margin-bottom:12px">Der Vorschlag kommt aus dem Namen. Änderungen werden mitsynchronisiert.</div>
+    <div class="scroll"><table id="tabOrte"></table></div>
+  </div>
+</div>
 
 <div id="syncBox" hidden style="margin-bottom:22px">
   <div class="drop" style="text-align:left">
@@ -142,8 +151,9 @@ svg text{fill:var(--ink2);font-size:11px}
 
 <div id="haupt" hidden>
   <div class="steuer">
-    <div class="feld" style="flex:1 1 320px">
+    <div class="feld" style="flex:1 1 340px">
       <label>Anlagen <span class="sub" id="anlagenHinweis"></span></label>
+      <div class="chips" id="schnellFilter" style="margin-bottom:6px"></div>
       <div class="chips" id="clubFilter"></div>
     </div>
     <div class="feld" id="feldBereich" hidden>
@@ -242,6 +252,7 @@ function club(id,slug,name){
     courts:{},belegung:{},deckung:{},preise:[]};
   const c=DB.clubs[id];
   if(slug&&!c.slug)c.slug=slug;
+  if(!c.seit)c.seit=new Date().toISOString();
   const schwach=!c.name||/^Anlage \d+$/.test(c.name);
   if(name&&schwach)c.name=name;
   else if(schwach&&slug)c.name=ausSlug(slug);
@@ -259,8 +270,11 @@ function typVon(x){return x.title?1:(x.match?2:0);}
 function nimmSlots(c,ab,liste){
   for(const x of liste){
     const k=x.date+"|"+x.court+"|"+String(x.start).padStart(4,"0");
-    const alt=c.belegung[k];
-    if(!alt||alt[0]<=ab) c.belegung[k]=[ab,typVon(x)];
+    const a=c.belegung[k];
+    const frueher=(c._erst||{})[k];
+    let erst=(a&&a[2])?a[2]:(a?a[0]:ab);
+    if(frueher&&frueher<erst)erst=frueher;
+    if(!a||a[0]<=ab) c.belegung[k]=[ab,typVon(x),erst<ab?erst:ab];
   }
 }
 function deckeWoche(c,ab,start){
@@ -273,11 +287,16 @@ function deckeWoche(c,ab,start){
 function bereinige(c,ab,tage,courts){
   const set=new Set(tage);
   const cs=courts&&courts.length?new Set(courts.map(String)):null;
+  c._erst=c._erst||{};
   for(const k of Object.keys(c.belegung)){
     const teile=k.split("|");
     if(!set.has(teile[0]))continue;
     if(cs&&!cs.has(teile[1]))continue;
-    if(c.belegung[k][0]<ab) delete c.belegung[k];
+    if(c.belegung[k][0]<ab){
+      const e=c.belegung[k][2]||c.belegung[k][0];
+      c._erst[k]=c._erst[k]&&c._erst[k]<e?c._erst[k]:e;
+      delete c.belegung[k];
+    }
   }
 }
 
@@ -813,10 +832,25 @@ function zeichneIntern(){
     [0,15,30,35,40,45,60,80,100].map(q=>'<i style="background:'+farbe(q)+'" title="'+q+' %"></i>').join("")+
     "&nbsp; rot unter 35 %, orange 35 bis 45 %, grün darüber";
 
-  const l6=DB.dateien.slice(-6).reverse();
-  document.getElementById("quellen").innerHTML="<strong>Zuletzt geladen</strong><ul>"+
+  let du='<strong>Datenbestand</strong><div class="scroll"><table><thead><tr>'+
+    "<th>Anlage</th><th>Bundesland</th><th>Zeitraum</th><th>Tage</th><th>Belegungen</th><th>beobachtet seit</th></tr></thead><tbody>";
+  Object.keys(DB.clubs).forEach(i=>{
+    const c=DB.clubs[i];
+    const tg=Object.keys(c.deckung).sort();
+    const n=Object.keys(c.belegung).length;
+    du+="<tr><td>"+c.name+"</td><td>"+regionVon(c)+"</td><td>"+
+      (tg.length?tg[0]+" bis "+tg[tg.length-1]:"–")+"</td><td>"+tg.length+"</td><td>"+
+      std(n)+"</td><td>"+(c.seit?new Date(c.seit).toLocaleDateString("de-AT"):"–")+"</td></tr>";
+  });
+  du+="</tbody></table></div>";
+  const l6=DB.dateien.slice(-5).reverse();
+  du+='<p style="margin-top:10px">Vergangene Tage bleiben dauerhaft erhalten. '+
+    "Für jeden Zeitslot gilt immer der zuletzt abgeholte Stand, damit Stornierungen richtig ankommen."+
+    (DB.stand?" Letzte Änderung "+new Date(DB.stand).toLocaleString("de-AT")+".":"")+"</p>";
+  du+="<strong>Zuletzt geladen</strong><ul>"+
     l6.map(d=>"<li>"+d.name+" · "+new Date(d.zeit).toLocaleString("de-AT")+"</li>").join("")+
-    "</ul>"+DB.dateien.length+" Dateien insgesamt. Die Daten liegen nur in diesem Browser.";
+    "</ul>"+DB.dateien.length+" Dateien insgesamt.";
+  document.getElementById("quellen").innerHTML=du;
 }
 
 /* ---------- Filterleisten ---------- */
@@ -848,7 +882,7 @@ function filterBauen(){
   });
   document.getElementById("anlagenHinweis").textContent=
     CLUBS.size>1?"("+CLUBS.size+" zusammengefasst)":"";
-  bereichBauen();
+  schnellBauen(ids); bereichBauen();
 
   const z=document.getElementById("selZeit"), alt=z.value;
   z.innerHTML=zeitOptionen().map(o=>'<option value="'+o.v+'">'+o.t+"</option>").join("");
@@ -858,6 +892,40 @@ function filterBauen(){
   z.value=[...z.options].some(o=>o.value===wunsch)?wunsch:"90";
   document.getElementById("leer").hidden=ids.length>0;
   document.getElementById("haupt").hidden=ids.length===0;
+}
+
+function schnellBauen(ids){
+  const box=document.getElementById("schnellFilter");
+  const regionen={};
+  ids.forEach(i=>{const r=regionVon(DB.clubs[i]);(regionen[r]=regionen[r]||[]).push(i);});
+  const namen=Object.keys(regionen).sort();
+  let h='<button class="chip" data-alle="1" aria-pressed="'+(CLUBS.size===ids.length)+'">Alle ('+ids.length+")</button>";
+  if(namen.length>1) h+=namen.map(r=>{
+    const an=regionen[r].every(x=>CLUBS.has(x))&&CLUBS.size===regionen[r].length;
+    return '<button class="chip" data-r="'+r+'" aria-pressed="'+an+'">'+r+" ("+regionen[r].length+")</button>";
+  }).join("");
+  box.innerHTML=h;
+  box.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+    if(b.dataset.alle) CLUBS=new Set(ids);
+    else CLUBS=new Set(regionen[b.dataset.r]);
+    auswahlMerken(); filterBauen(); zeichne();
+  });
+}
+function orteBauen(){
+  const ids=Object.keys(DB.clubs);
+  let h='<thead><tr><th>Anlage</th><th>Plätze</th><th>Daten ab</th><th>Bundesland</th></tr></thead><tbody>';
+  ids.forEach(i=>{
+    const c=DB.clubs[i];
+    h+="<tr><td>"+c.name+"</td><td>"+alleCourts(c).length+"</td><td>"+(ersterTag(c)||"–")+
+      '</td><td><select data-id="'+i+'">'+BUNDESLAENDER.map(b=>
+      '<option'+(regionVon(c)===b?" selected":"")+">"+b+"</option>").join("")+"</select></td></tr>";
+  });
+  document.getElementById("tabOrte").innerHTML=h+"</tbody>";
+  document.getElementById("tabOrte").querySelectorAll("select").forEach(se=>se.onchange=()=>{
+    DB.clubs[se.dataset.id].region=se.value;
+    DB.stand=new Date().toISOString(); sichern(); filterBauen(); zeichne();
+    if(SYNC&&SYNC.token&&!SYNC.nurLesen) schieben();
+  });
 }
 function bereichBauen(){
   const liste=[...CLUBS].map(i=>DB.clubs[i]).filter(Boolean);
@@ -877,6 +945,25 @@ function bereichBauen(){
   });
 }
 
+
+
+const BUNDESLAENDER=["Wien","Niederösterreich","Oberösterreich","Steiermark","Kärnten",
+  "Salzburg","Tirol","Vorarlberg","Burgenland","Anderes"];
+const ORTE={Steiermark:["graz","puntigam","wildon","seiersberg","leibnitz","kalsdorf","weiz","liezen","kapfenberg","bruck","hartberg","feldbach","messendorf","ragnitz","gleisdorf"],
+  Wien:["wien","vienna"],
+  Kärnten:["klagenfurt","villach","velden","wolfsberg","spittal","nassfeld"],
+  Oberösterreich:["linz","wels","steyr","gmunden","ebensee","attersee","bad ischl","altmünster","traunsee","vöcklabruck"],
+  Niederösterreich:["pölten","neustadt","krems","baden","mödling","tulln","amstetten"],
+  Salzburg:["salzburg","hallein","zell am see","saalfelden"],
+  Tirol:["innsbruck","kufstein","schwaz","kitzbühel","telfs"],
+  Vorarlberg:["dornbirn","bregenz","feldkirch","bludenz","vaere"],
+  Burgenland:["eisenstadt","neusiedl","oberwart","mattersburg"]};
+function regionRaten(c){
+  const t=((c.name||"")+" "+(c.slug||"")).toLowerCase();
+  for(const bl in ORTE) if(ORTE[bl].some(o=>t.includes(o))) return bl;
+  return "Anderes";
+}
+function regionVon(c){ return c.region||regionRaten(c); }
 
 /* ---------- Abgleich über GitHub ---------- */
 const KEYS="padel.sync.v1";
@@ -1020,6 +1107,11 @@ document.getElementById("btnLeeren").onclick=()=>{
     DB={clubs:{},dateien:[]}; CLUBS=null; sichern(); filterBauen();
     document.getElementById("kopfInfo").textContent="Noch keine Daten geladen";
   }
+};
+document.getElementById("btnOrte").onclick=()=>{
+  const b=document.getElementById("orteBox"); b.hidden=!b.hidden;
+  document.getElementById("btnOrte").setAttribute("aria-pressed",String(!b.hidden));
+  if(!b.hidden) orteBauen();
 };
 document.getElementById("btnSync").onclick=()=>{
   const b=document.getElementById("syncBox"); b.hidden=!b.hidden;
