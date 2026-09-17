@@ -347,6 +347,17 @@ function leseDatei(obj,name){
     return {ok:true,n:0,clubs:Object.keys(obj.clubs),sicherung:true};
   }
 
+  /* Sammeldatei: mehrere Anlagen in einer Datei */
+  if(Array.isArray(obj)&&obj.length&&obj.every(x=>x&&x.v===4&&x.wochen)){
+    let ges=0;
+    for(const teil of obj){
+      const r=leseDatei(teil,name);
+      if(r.ok){ges+=r.n||0;(r.clubs||[]).forEach(c=>clubsBeruehrt.add(c));}
+    }
+    DB.dateien=DB.dateien.filter(d=>d.name!==name||d.zeit!==undefined);
+    return {ok:true,n:ges,clubs:[...clubsBeruehrt]};
+  }
+
   /* Lauscher-Aufzeichnung */
   if(Array.isArray(obj)){
     const ab=new Date().toISOString();
