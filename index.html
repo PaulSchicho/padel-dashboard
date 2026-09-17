@@ -460,13 +460,46 @@ function courtInfo(c,cid){
 }
 function zellenCourt(c,cid){const i=courtInfo(c,cid);
   return Math.max(0,(i.bisStart+i.raster-i.von)/30);}
-function preisFuer(c,cid,datum,hhmm){
-  const w=wdVon(datum); let best=null;
+function preisIndex(c){
+  if(c._pidx&&c._pidxStand===(DB.stand||""))return c._pidx;
+  const genau={};                      /* cid|wd|hhmm -> Liste [ab,preis] */
+  const sammel={a:{},b:{},d:{},e:{}}, alleP=[];
+  const dazu=(m,k,v)=>{(m[k]=m[k]||[]).push(v);};
   for(const r of c.preise){
-    if(r[1]!==cid||r[2]!==w||r[3]!==hhmm)continue;
-    if(r[0]<=datum+"T23:59"){if(!best||r[0]>best[0])best=r;} else if(!best)best=r;
+    const k=r[1]+"|"+r[2]+"|"+r[3];
+    (genau[k]=genau[k]||[]).push([r[0],r[4]]);
   }
-  return best?best[4]:null;
+  for(const k in genau){
+    genau[k].sort((x,y)=>x[0]<y[0]?-1:1);
+    const [cid,wd,hh]=k.split("|"), typ=(+wd>=5)?1:0;
+    const p=genau[k][genau[k].length-1][1];
+    dazu(sammel.a,cid+"|"+typ+"|"+hh,p);
+    dazu(sammel.b,cid+"|"+typ,p);
+    dazu(sammel.d,cid,p);
+    dazu(sammel.e,typ+"|"+hh,p);
+    alleP.push(p);
+  }
+  const mittel=m=>{const o={};for(const k in m)o[k]=m[k].reduce((x,y)=>x+y,0)/m[k].length;return o;};
+  c._pidx={genau,a:mittel(sammel.a),b:mittel(sammel.b),d:mittel(sammel.d),e:mittel(sammel.e),
+    f:alleP.length?alleP.reduce((x,y)=>x+y,0)/alleP.length:null};
+  c._pidxStand=DB.stand||"";
+  return c._pidx;
+}
+/* liefert {p, exakt} - p ist der Preis je Halbstunde */
+function preisFuer(c,cid,datum,hhmm){
+  const idx=preisIndex(c), w=wdVon(datum), typ=w>=5?1:0;
+  const liste=idx.genau[cid+"|"+w+"|"+hhmm];
+  if(liste&&liste.length){
+    let best=liste[0];
+    for(const r of liste) if(r[0]<=datum+"T23:59") best=r;
+    return {p:best[1],exakt:true};
+  }
+  let p=idx.a[cid+"|"+typ+"|"+hhmm];
+  if(p==null)p=idx.b[cid+"|"+typ];
+  if(p==null)p=idx.d[cid];
+  if(p==null)p=idx.e[typ+"|"+hhmm];
+  if(p==null)p=idx.f;
+  return {p:(p==null?null:p),exakt:false};
 }
 function ersteBuchung(c){let m=null;for(const k in c.belegung){const t=k.slice(0,10);if(!m||t<m)m=t;}return m;}
 function ersterTag(c){
@@ -523,7 +556,7 @@ function zellenEines(c,von,bis){
 function auswertung(ids,von,bis){
   const h=heuteISO();
   const teile=[], tageAlle=new Set();
-  let zsAlle=[], kap=0, umsatz=0, ohnePreis=0, stdMitPreis=0, courts=0;
+  let zsAlle=[], kap=0, umsatz=0, ohnePreis=0, stdMitPreis=0, geschaetzt=0, courts=0;
   let oVon=null,oBis=null; const sperren=[];
   for(const id of ids){
     const c=DB.clubs[id]; if(!c)continue;
@@ -537,8 +570,10 @@ function auswertung(ids,von,bis){
     for(const t of tage) for(const cid of liste) if(!sp.has(t+"|"+cid)) kapC+=zellenCourt(c,cid);
     let umC=0;
     for(const z of zs){
-      const p=preisFuer(c,z.cid,z.datum,min2hhmm(z.min));
-      if(p==null)ohnePreis++; else {umC+=p; stdMitPreis+=0.5;}
+      const r=preisFuer(c,z.cid,z.datum,min2hhmm(z.min));
+      if(r.p==null){ohnePreis++;continue;}
+      umC+=r.p;
+      if(r.exakt) stdMitPreis+=0.5; else geschaetzt+=0.5;
     }
     for(const cid of liste){const i=courtInfo(c,cid);
       oVon=oVon==null?i.von:Math.min(oVon,i.von);
@@ -550,7 +585,7 @@ function auswertung(ids,von,bis){
       quote:kapC?zs.length/kapC*100:0});
   }
   const tage=[...tageAlle].sort();
-  return {teile,tage,zs:zsAlle,kap,umsatz,ohnePreis,stdMitPreis,courts,
+  return {teile,tage,zs:zsAlle,kap,umsatz,ohnePreis,stdMitPreis,geschaetzt,courts,
           oVon:oVon||0,oBis:oBis||0,sperren,
           quote:kap?zsAlle.length/kap*100:0,stunden:zsAlle.length/2,
           kapStunden:kap/2};
@@ -667,7 +702,9 @@ function zeichneIntern(){
   }else{
     m="Zeitraum "+von+" bis "+bis+", "+a.tage.length+" Tage mit Daten.";
     if(a.tage.length<14)m+=" Wenige Tage, die Wochentagswerte sind noch unsicher.";
-    if(a.ohnePreis)m+=" Für "+std(a.ohnePreis/2)+" Stunden fehlt ein Preis, der Umsatz ist untertrieben.";
+    if(a.geschaetzt)m+=" Für "+std(a.geschaetzt)+" von "+std(a.stunden)+
+      " Stunden gab es keinen veröffentlichten Preis, dort wurde mit vergleichbaren Zeiten desselben Platzes gerechnet.";
+    if(a.ohnePreis)m+=" Für "+std(a.ohnePreis/2)+" Stunden fehlt jede Preisangabe, sie fließen mit null ein.";
     if(a.sperren.length)m+="<br><strong>Als gesperrt gewertet:</strong> "+
       a.sperren.slice(0,3).map(x=>courtInfo(x.club,x.cid).name+" ("+x.club.name+") "+
       x.von+" bis "+x.bis).join(", ")+(a.sperren.length>3?" und weitere":"")+".";
@@ -677,13 +714,16 @@ function zeichneIntern(){
   /* KPI */
   const nTage=a.tage.length||1;
   const proTag=a.umsatz/nTage, proTagCourt=a.courts?proTag/a.courts:0;
-  const schnitt=a.stdMitPreis?a.umsatz/a.stdMitPreis:0;
+  const stdPreis=a.stdMitPreis+a.geschaetzt;
+  const schnitt=stdPreis?a.umsatz/stdPreis:0;
+  const anteilGesch=stdPreis?a.geschaetzt/stdPreis*100:0;
   const kapTag=a.courts?a.kapStunden/nTage:0;
   const k=[];
   k.push({z:pz(a.quote),l:"Auslastung gesamt",f:farbe(a.quote)});
   k.push({z:std(a.stunden)+" h",l:"belegte Platzstunden",k:"von "+std(a.kapStunden)+" h möglich"});
-  k.push({z:a.stdMitPreis?eur2(schnitt):"–",l:"Ø Preis je belegter Stunde"});
-  k.push({z:a.umsatz?eur(a.umsatz):"–",l:"Court-Umsatz im Zeitraum"});
+  k.push({z:stdPreis?eur2(schnitt):"–",l:"Ø Preis je belegter Stunde"});
+  k.push({z:a.umsatz?eur(a.umsatz):"–",l:"Court-Umsatz im Zeitraum",
+    k:anteilGesch>1?Math.round(anteilGesch)+" % der Stunden hochgerechnet":"alle Preise belegt"});
   k.push({z:a.umsatz?eur(proTag):"–",l:"Umsatz pro Tag",
           k:a.umsatz?eur2(proTagCourt)+" je Platz und Tag":""});
   const nachBereich={};
@@ -728,7 +768,7 @@ function zeichneIntern(){
   const aM=auswertung([...CLUBS],startM,gestern);
   const mz={},mu={};
   aM.zs.forEach(z=>{const s=z.datum.slice(0,7);mz[s]=(mz[s]||0)+1;
-    const p=preisFuer(z.club,z.cid,z.datum,min2hhmm(z.min)); if(p!=null)mu[s]=(mu[s]||0)+p;});
+    const r=preisFuer(z.club,z.cid,z.datum,min2hhmm(z.min)); if(r.p!=null)mu[s]=(mu[s]||0)+r.p;});
   const monate=[...new Set(aM.tage.map(t=>t.slice(0,7)))].sort().slice(-4);
   const serien=[];
   if(aM.teile.length>1) aM.teile.forEach(t=>{
@@ -795,8 +835,8 @@ function zeichneIntern(){
     const tage=t.tage.filter(d=>!t.sp.has(d+"|"+cid)).length;
     const kap=tage*zellenCourt(t.club,cid);
     let um=0,mitP=0;
-    zs.forEach(z=>{const p=preisFuer(t.club,cid,z.datum,min2hhmm(z.min));
-      if(p!=null){um+=p;mitP+=0.5;}});
+    zs.forEach(z=>{const r=preisFuer(t.club,cid,z.datum,min2hhmm(z.min));
+      if(r.p!=null){um+=r.p;mitP+=0.5;}});
     const i=courtInfo(t.club,cid);
     zeilenP.push({club:t.club.name,name:i.name,h:zs.length/2,kap:kap/2,
       q:kap?zs.length/kap*100:0,um,eh:mitP?um/mitP:null,
