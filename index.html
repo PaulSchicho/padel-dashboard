@@ -226,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-17m";
+const VERSION="2026-09-18a";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -352,9 +352,8 @@ function kalenderHTML(c,ab,html){
     if(!c.courts[cid])c.courts[cid]={};
     const o=c.courts[cid];
     if(nm&&nm.textContent.trim())o.name=nm.textContent.trim();
-    const v2=hhmm2min(td.getAttribute("data-firststart"));
-    const b2=hhmm2min(td.getAttribute("data-laststart"));
-    if(!isNaN(v2)&&!isNaN(b2)){ o.von=v2; o.bisStart=b2<v2?b2+1440:b2; }
+    zeitSetzen(o,ab,hhmm2min(td.getAttribute("data-firststart")),
+                   hhmm2min(td.getAttribute("data-laststart")));
     if(tr){o.bereich=tr.getAttribute("data-area")||o.bereich;
            o.belag=tr.getAttribute("data-surface")||o.belag;}
   });
@@ -442,8 +441,7 @@ function leseDatei(obj,name){
     if(obj.meta) for(const m of obj.meta){
       const o=c.courts[m[0]]=c.courts[m[0]]||{};
       if(m[1])o.name=m[1];
-      const v1=hhmm2min(m[2]), b1=hhmm2min(m[3]);
-      if(!isNaN(v1)&&!isNaN(b1)) { o.von=v1; o.bisStart=b1<v1?b1+1440:b1; }
+      zeitSetzen(o,ab,hhmm2min(m[2]),hhmm2min(m[3]));
       o.bereich=m[4]||"";
       if(m[5])o.belag=m[5];
     }
@@ -518,15 +516,40 @@ function courtListe(c){
   const g=l.filter(x=>BEREICH.has(bereichVon(c,x)));
   return g;
 }
-function courtInfo(c,cid){
-  const o=c.courts[cid]||{};
-  const von=(o.von!=null&&!isNaN(o.von))?o.von:7*60;
-  let bis=(o.bisStart!=null&&!isNaN(o.bisStart))?o.bisStart:22*60;
-  if(bis<von)bis+=1440;            /* letzter Start nach Mitternacht */
-  return {name:o.name||("Platz "+cid),von:von,bisStart:bis,raster:o.raster||60,
-          bereich:o.bereich||"",belag:o.belag||""};
+/* Öffnungszeiten werden als Verlauf gespeichert: [gueltigAb, von, bisStart] */
+function zeitSetzen(o,abISO,von,bisStart){
+  if(isNaN(von)||isNaN(bisStart))return;
+  if(bisStart<von)bisStart+=1440;
+  const tag=String(abISO||"").slice(0,10)||heuteISO();
+  if(!o.zeiten||!o.zeiten.length){
+    /* Altbestand: bisherige Werte gelten rueckwirkend seit jeher */
+    o.zeiten=[];
+    if(o.von!=null&&!isNaN(o.von)&&o.bisStart!=null&&!isNaN(o.bisStart)){
+      let b=o.bisStart; if(b<o.von)b+=1440;
+      o.zeiten.push(["0000-01-01",o.von,b]);
+    }
+  }
+  const letzte=o.zeiten[o.zeiten.length-1];
+  if(letzte&&letzte[1]===von&&letzte[2]===bisStart)return;   /* nichts geaendert */
+  if(letzte&&letzte[0]===tag){ letzte[1]=von; letzte[2]=bisStart; }
+  else o.zeiten.push([tag,von,bisStart]);
+  o.von=von; o.bisStart=bisStart;                            /* aktueller Stand */
 }
-function zellenCourt(c,cid){const i=courtInfo(c,cid);
+function courtInfo(c,cid,datum){
+  const o=c.courts[cid]||{};
+  let von=(o.von!=null&&!isNaN(o.von))?o.von:7*60;
+  let bis=(o.bisStart!=null&&!isNaN(o.bisStart))?o.bisStart:22*60;
+  if(o.zeiten&&o.zeiten.length){
+    const d=datum||"9999-12-31";
+    let treffer=o.zeiten[0];
+    for(const z of o.zeiten) if(z[0]<=d) treffer=z;
+    von=treffer[1]; bis=treffer[2];
+  }
+  if(bis<von)bis+=1440;
+  return {name:o.name||("Platz "+cid),von:von,bisStart:bis,raster:o.raster||60,
+          bereich:o.bereich||"",belag:o.belag||"",wechsel:(o.zeiten||[]).length>1};
+}
+function zellenCourt(c,cid,datum){const i=courtInfo(c,cid,datum);
   return Math.max(0,(i.bisStart+i.raster-i.von)/30);}
 function preisIndex(c){
   if(c._pidx&&c._pidxStand===(DB.stand||""))return c._pidx;
@@ -631,18 +654,20 @@ function zellenEines(c,von,bis){
 function auswertung(ids,von,bis){
   const h=heuteISO();
   const teile=[], tageAlle=new Set();
-  let zsAlle=[], kap=0, umsatz=0, ohnePreis=0, stdMitPreis=0, geschaetzt=0, courts=0;
+  let zsAlle=[], kap=0, umsatz=0, ohnePreis=0, stdMitPreis=0, geschaetzt=0, courts=0, platzTage=0;
   let oVon=null,oBis=null; const sperren=[];
   for(const id of ids){
     const c=DB.clubs[id]; if(!c)continue;
     const liste=courtListe(c); if(!liste.length)continue;
     const start=ersterTag(c);
-    const tage=Object.keys(c.deckung).filter(t=>t>=von&&t>=start&&t<=bis&&t<h).sort();
+    const tage=Object.keys(c.deckung).filter(t=>t>=von&&t>=start&&t<=bis&&t!==h).sort();
     const sp=sperrenVon(c,liste);
     sperrZeitraeume(c,sp).forEach(x=>sperren.push({club:c,...x}));
-    const zs=zellenEines(c,von,bis).filter(z=>c.deckung[z.datum]&&z.datum<h&&!sp.has(z.datum+"|"+z.cid));
-    let kapC=0;
-    for(const t of tage) for(const cid of liste) if(!sp.has(t+"|"+cid)) kapC+=zellenCourt(c,cid);
+    const zs=zellenEines(c,von,bis).filter(z=>c.deckung[z.datum]&&z.datum!==h&&!sp.has(z.datum+"|"+z.cid));
+    let kapC=0, platzTageC=0;
+    for(const t of tage) for(const cid of liste) if(!sp.has(t+"|"+cid)){
+      kapC+=zellenCourt(c,cid,t); platzTageC++;
+    }
     let umC=0;
     for(const z of zs){
       const r=preisFuer(c,z.cid,z.datum,min2hhmm(z.min));
@@ -655,12 +680,12 @@ function auswertung(ids,von,bis){
       oBis=oBis==null?i.bisStart+i.raster:Math.max(oBis,i.bisStart+i.raster);}
     tage.forEach(t=>tageAlle.add(t));
     zs.forEach(z=>zsAlle.push({...z,club:c}));
-    kap+=kapC; umsatz+=umC; courts+=liste.length;
+    kap+=kapC; umsatz+=umC; courts+=liste.length; platzTage+=platzTageC;
     teile.push({club:c,liste,tage,sp,zs,kap:kapC,umsatz:umC,
       quote:kapC?zs.length/kapC*100:0});
   }
   const tage=[...tageAlle].sort();
-  return {teile,tage,zs:zsAlle,kap,umsatz,ohnePreis,stdMitPreis,geschaetzt,courts,
+  return {teile,tage,zs:zsAlle,kap,umsatz,ohnePreis,stdMitPreis,geschaetzt,courts,platzTage,
           oVon:oVon||0,oBis:oBis||0,sperren,
           quote:kap?zsAlle.length/kap*100:0,stunden:zsAlle.length/2,
           kapStunden:kap/2};
@@ -672,7 +697,7 @@ function kapFilter(a,tagOk,minOk){
     if(tagOk&&!tagOk(d))continue;
     for(const cid of t.liste){
       if(t.sp.has(d+"|"+cid))continue;
-      const i=courtInfo(t.club,cid);
+      const i=courtInfo(t.club,cid,d);
       for(let m=i.von;m<i.bisStart+i.raster;m+=30) if(!minOk||minOk(m)) n++;
     }
   }
@@ -731,7 +756,9 @@ function linie(el,monate,serien){
 
 /* ---------- Zeitraum ---------- */
 function zeitOptionen(){
-  const o=[{v:"gestern",t:"Gestern"},{v:"woche",t:"Diese Woche bis jetzt"},
+  const o=[{v:"morgen",t:"Morgen"},{v:"n7",t:"Nächste 7 Tage"},{v:"n10",t:"Nächste 10 Tage"},
+    {v:"n14",t:"Nächste 14 Tage"},
+    {v:"gestern",t:"Gestern"},{v:"woche",t:"Diese Woche bis jetzt"},
     {v:"vwoche",t:"Letzte Woche"},{v:"monat",t:"Dieser Monat bis jetzt"},
     {v:"vmonat",t:"Letzter Monat"},{v:"30",t:"Letzte 30 Tage"},{v:"90",t:"Letzte 90 Tage"},
     {v:"365",t:"Letzte 12 Monate"},{v:"ytd",t:"Seit Jahresbeginn"}];
@@ -743,6 +770,8 @@ function zeitOptionen(){
 }
 function grenzen(v){
   const h=heuteISO(), g=plusTage(h,-1);
+  if(v==="morgen"){const m=plusTage(h,1);return [m,m];}
+  if(v[0]==="n"&&/^n\d+$/.test(v)){return [plusTage(h,1),plusTage(h,parseInt(v.slice(1),10))];}
   if(v==="gestern")return [g,g];
   if(v==="woche"){const mo=plusTage(h,-wdVon(h));return [mo,g<mo?mo:g];}
   if(v==="vwoche"){const mo=plusTage(plusTage(h,-wdVon(h)),-7);return [mo,plusTage(mo,6)];}
@@ -784,6 +813,7 @@ function zeichneIntern(){
     meld(m,true);
   }else{
     m="Zeitraum "+von+" bis "+bis+", "+a.tage.length+" Tage mit Daten.";
+    if(von>heuteISO()) m+=" <strong>Vorausschau:</strong> das ist der heutige Buchungsstand, nicht die endgültige Auslastung. Bis zum Spieltag kommen noch Buchungen dazu.";
     if(a.tage.length<14)m+=" Wenige Tage, die Wochentagswerte sind noch unsicher.";
     if(a.geschaetzt)m+=" Für "+std(a.geschaetzt)+" von "+std(a.stunden)+
       " Stunden gab es keinen veröffentlichten Preis, dort wurde mit vergleichbaren Zeiten desselben Platzes gerechnet.";
@@ -803,7 +833,11 @@ function zeichneIntern(){
   const kapTag=a.courts?a.kapStunden/nTage:0;
   const k=[];
   k.push({z:pz(a.quote),l:"Auslastung gesamt",f:farbe(a.quote)});
-  k.push({z:std(a.stunden)+" h",l:"belegte Platzstunden",k:"von "+std(a.kapStunden)+" h möglich"});
+  const proPlatzTag=a.platzTage?a.stunden/a.platzTage:0;
+  k.push({z:std(a.stunden)+" h",l:"belegte Platzstunden",
+    k:"von "+std(a.kapStunden)+" h möglich"});
+  k.push({z:proPlatzTag.toLocaleString("de-AT",{minimumFractionDigits:1,maximumFractionDigits:1})+" h",
+    l:"je Platz und Tag belegt",k:a.platzTage?std(a.platzTage)+" Platztage im Zeitraum":""});
   k.push({z:stdPreis?eur2(schnitt):"–",l:"Ø Preis je belegter Stunde"});
   k.push({z:a.umsatz?eur(a.umsatz):"–",l:"Court-Umsatz im Zeitraum",
     k:anteilGesch>1?Math.round(anteilGesch)+" % der Stunden hochgerechnet":"alle Preise belegt"});
