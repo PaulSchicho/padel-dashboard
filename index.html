@@ -226,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-18b";
+const VERSION="2026-09-18c";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -389,6 +389,46 @@ function leseDatei(obj,name){
     const behalten=zusammenfuehren(obj);
     DB.stand=new Date().toISOString();
     return {ok:true,n:0,clubs:Object.keys(DB.clubs),sicherung:true,behalten:behalten};
+  }
+
+  /* Format des automatischen Sammlers */
+  if(obj&&obj.v===5&&obj.clubs){
+    const ab=obj.geholt||new Date().toISOString();
+    let n=0;
+    for(const fid in obj.clubs){
+      const e=obj.clubs[fid];
+      const c=club(fid,e.slug||"",e.t||"");
+      if(e.t&&e.t.length>3)c.name=e.t;
+      clubsBeruehrt.add(String(fid));
+      if(e.m) for(const m of e.m){
+        const o=c.courts[m[0]]=c.courts[m[0]]||{};
+        if(m[1])o.name=m[1];
+        zeitSetzen(o,ab,hhmm2min(m[2]),hhmm2min(m[3]));
+        o.bereich=m[4]||o.bereich||"";
+        o.raster=o.raster||30;
+      }
+      if(e.p){
+        const neu=[];
+        for(const cid in e.p) for(const wd in e.p[cid]) for(const zeit in e.p[cid][wd])
+          neu.push([ab,String(cid),+wd,zeit,e.p[cid][wd][zeit]]);
+        const weg=new Set(neu.map(r=>r.slice(1,4).join("|")));
+        c.preise=c.preise.filter(r=>!weg.has(r.slice(1,4).join("|")));
+        c.preise.push(...neu);
+      }
+      const tage=e.ab||Object.keys(e.b||{});
+      const courts=new Set();
+      for(const d in (e.b||{})) for(const cid in e.b[d]) courts.add(String(cid));
+      (e.m||[]).forEach(m=>courts.add(String(m[0])));
+      bereinige(c,ab,tage,[...courts]);
+      for(const t of tage) if(!c.deckung[t]||c.deckung[t]<=ab) c.deckung[t]=ab;
+      for(const d in (e.b||{})) for(const cid in e.b[d]) for(const zeit in e.b[d][cid]){
+        const erst=e.b[d][cid][zeit];
+        c.belegung[d+"|"+cid+"|"+zeit]=[ab,0,(typeof erst==="string"&&erst.length>=10)?erst:ab];
+        n++;
+      }
+    }
+    DB.dateien.push({name:name,zeit:new Date().toISOString(),slots:n});
+    return {ok:true,n:n,clubs:[...clubsBeruehrt]};
   }
 
   /* Sammeldatei: mehrere Anlagen in einer Datei */
@@ -1294,6 +1334,32 @@ function standJetzt(){
   return {padelSicherung:true,stand:new Date().toISOString(),
           clubs:DB.clubs,dateien:DB.dateien};
 }
+async function entpacken(antwort){
+  const roh=await antwort.arrayBuffer();
+  if(typeof DecompressionStream!=="undefined"){
+    const s=new Blob([roh]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return JSON.parse(await new Response(s).text());
+  }
+  throw new Error("Dieser Browser kann gepackte Dateien nicht lesen");
+}
+async function automatikHolen(){
+  if(!SYNC||!SYNC.token)return 0;
+  const dateien=["daten/padelbase_archiv.json.gz","daten/padelbase_aktuell.json.gz",
+                 "daten/t04_archiv.json.gz"];
+  let n=0;
+  for(const pfad of dateien){
+    try{
+      const r=await fetch(ghUrl(pfad),{headers:ghKopf(true),cache:"no-store"});
+      if(r.status===404)continue;
+      if(!r.ok)continue;
+      const d=await entpacken(r);
+      const erg=leseDatei(d,pfad.split("/").pop());
+      if(erg&&erg.ok)n+=erg.n||0;
+    }catch(e){ console.warn("Automatik",pfad,e.message); }
+  }
+  if(n){ DB.stand=new Date().toISOString(); sichern(); }
+  return n;
+}
 async function ziehen(still){
   if(!SYNC||!SYNC.token)return;
   try{
@@ -1302,13 +1368,19 @@ async function ziehen(still){
     if(!fern){syStatus("Auf GitHub liegt noch kein Stand. Lade einmal hoch.");return;}
     const eigen=DB.stand||"";
     if(fern.stand&&eigen&&fern.stand<=eigen){
-      syStatus("Schon aktuell (Stand "+new Date(eigen).toLocaleString("de-AT")+").");
+      const auto=await automatikHolen();
+      if(auto){ filterBauen(); zeichne(); }
+      syStatus("Stand vom "+new Date(eigen).toLocaleString("de-AT")+"."+
+        (auto?" Automatik: "+std(auto)+" Belegungen ergänzt.":" Schon aktuell."));
       return;
     }
     const behalten=zusammenfuehren(fern);
     CLUBS=null; sichern(); filterBauen(); zeichne();
+    const auto=await automatikHolen();
+    filterBauen(); zeichne();
     syStatus("Geladen. Stand vom "+new Date(DB.stand).toLocaleString("de-AT")+"."+
-      (behalten?" "+behalten+" nur lokal vorhandene Anlagen wurden behalten.":""));
+      (behalten?" "+behalten+" nur lokal vorhandene Anlagen wurden behalten.":"")+
+      (auto?" Automatik: "+std(auto)+" Belegungen ergänzt.":""));
   }catch(e){ syStatus(e.message,true); if(!still)console.error(e); }
 }
 async function schieben(){
