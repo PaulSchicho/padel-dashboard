@@ -226,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-18a";
+const VERSION="2026-09-18b";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -430,11 +430,16 @@ function leseDatei(obj,name){
     clubsBeruehrt.add(String(obj.facility));
     for(const w of obj.wochen){
       if(w.status!==200||!w.body)continue;
-      const tage=Array.from({length:7},(_,i)=>plusTage(w.start,i));
+      const tage=(obj.abgedeckt&&obj.abgedeckt.length)
+        ? obj.abgedeckt.filter(t=>t>=w.start&&t<plusTage(w.start,7))
+        : Array.from({length:7},(_,i)=>plusTage(w.start,i));
       const s=slotsAus(w.body);
       const cset=obj.courts&&obj.courts.length?obj.courts.map(String)
                  :[...new Set(s.map(x=>String(x.court)))];
-      bereinige(c,ab,tage,cset); deckeWoche(c,ab,w.start);
+      bereinige(c,ab,tage,cset);
+      if(obj.abgedeckt&&obj.abgedeckt.length){
+        for(const t of tage) if(!c.deckung[t]||c.deckung[t]<=ab) c.deckung[t]=ab;
+      } else deckeWoche(c,ab,w.start);
       nimmSlots(c,ab,s); n+=s.length;
     }
     if(obj.kalender) for(const h of obj.kalender) kalenderHTML(c,ab,h);
