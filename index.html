@@ -226,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-11-02a";
+const VERSION="2026-11-02b";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -1381,15 +1381,19 @@ async function ziehen(still){
     syStatus("Lade …");
     const fern=await standHolen();
     if(!fern){syStatus("Auf GitHub liegt noch kein Stand. Lade einmal hoch.");return;}
-    const eigen=DB.stand||"";
+    /* Verglichen wird mit dem zuletzt von GitHub geholten Stand, nicht mit dem
+       eigenen. Sonst gilt jede lokale Aenderung, auch das Leeren oder der
+       stuendliche Automatikabruf, als neuer und der ferne Stand kaeme nie an. */
+    const eigen=DB.fernStand||"";
     if(fern.stand&&eigen&&fern.stand<=eigen){
       const auto=await automatikHolen();
       if(auto){ filterBauen(); zeichne(); }
-      syStatus("Stand vom "+new Date(eigen).toLocaleString("de-AT")+"."+
+      syStatus("Stand vom "+new Date(DB.stand||eigen).toLocaleString("de-AT")+"."+
         (auto?" Automatik: "+std(auto)+" Belegungen ergänzt.":" Schon aktuell."));
       return;
     }
     const behalten=zusammenfuehren(fern);
+    DB.fernStand=fern.stand||"";
     CLUBS=null; sichern(); filterBauen(); zeichne();
     const auto=await automatikHolen();
     filterBauen(); zeichne();
@@ -1408,7 +1412,7 @@ async function schieben(){
     const bytes=await packen(roh);
     if(!bytes){syStatus("Dieser Browser kann nicht packen. Bitte Chrome verwenden.",true);return;}
     await ghSchreiben(STANDPFAD,bytes,"Stand "+st.stand);
-    DB.stand=st.stand; sichern();
+    DB.stand=st.stand; DB.fernStand=st.stand; sichern();
     syStatus("Hochgeladen ("+(bytes.length/1048576).toFixed(1)+" MB gepackt aus "
       +(roh.length/1048576).toFixed(1)+" MB). Andere Geräte sehen das nach dem nächsten Öffnen.");
   }catch(e){ syStatus(e.message,true); }
@@ -1477,7 +1481,9 @@ document.getElementById("btnSichern").onclick=()=>{
 };
 document.getElementById("btnLeeren").onclick=()=>{
   if(confirm("Alle gespeicherten Daten in diesem Browser löschen?")){
-    DB={clubs:{},dateien:[],stand:new Date().toISOString()}; CLUBS=null;
+    /* Leerer Speicher heisst auch: nichts von GitHub gesehen. Sonst haelt sich
+       das Geraet fuer aktueller als GitHub und laedt nie wieder voll nach. */
+    DB={clubs:{},dateien:[],stand:"",fernStand:""}; CLUBS=null;
     idbSchreiben("daten",DB).catch(()=>{}); filterBauen();
     document.getElementById("kopfInfo").textContent="Noch keine Daten geladen";
   }
