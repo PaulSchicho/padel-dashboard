@@ -226,7 +226,7 @@ const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const MON=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const KEY="padel.daten.v1";
 const KEYW="padel.auswahl.v1";
-const VERSION="2026-09-18c";
+const VERSION="2026-11-02a";
 const REIHE=["#14524A","#B4472B","#2E7D5B","#7A5BA8","#C08A1E","#2B6CA3"];
 
 /* ---------- Speicher ---------- */
@@ -1288,14 +1288,28 @@ function ghKopf(roh){
           Accept: roh?"application/vnd.github.raw":"application/vnd.github+json",
           "X-GitHub-Api-Version":"2022-11-28"};
 }
-const STANDPFAD="stand.json";
+const STANDPFAD="stand.json.gz";
+const STANDALT="stand.json";          /* frueherer, ungepackter Stand */
+async function packen(txt){
+  if(typeof CompressionStream==="undefined")return null;
+  const s=new Blob([txt]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+function b64vonBytes(b){
+  let r="", c=0x8000;
+  for(let i=0;i<b.length;i+=c) r+=String.fromCharCode.apply(null,b.subarray(i,i+c));
+  return btoa(r);
+}
 
 async function standHolen(){
-  const r=await fetch(ghUrl(STANDPFAD),{headers:ghKopf(true),cache:"no-store"});
-  if(r.status===404)return null;
-  if(r.status===401||r.status===403)throw new Error("Zugang verweigert. Stimmt der Schlüssel?");
-  if(!r.ok)throw new Error("GitHub antwortet mit "+r.status);
-  return JSON.parse(await r.text());
+  for(const pfad of [STANDPFAD,STANDALT]){
+    const r=await fetch(ghUrl(pfad),{headers:ghKopf(true),cache:"no-store"});
+    if(r.status===404)continue;
+    if(r.status===401||r.status===403)throw new Error("Zugang verweigert. Stimmt der Schlüssel?");
+    if(!r.ok)throw new Error("GitHub antwortet mit "+r.status);
+    return pfad.endsWith(".gz")?await entpacken(r):JSON.parse(await r.text());
+  }
+  return null;
 }
 async function shaVon(pfad){
   const r=await fetch(ghUrl(pfad),{headers:ghKopf(false),cache:"no-store"});
@@ -1303,9 +1317,10 @@ async function shaVon(pfad){
   if(!r.ok)return null;
   const j=await r.json(); return j.sha||null;
 }
-async function ghSchreiben(pfad,text,nachricht){
+async function ghSchreiben(pfad,inhalt,nachricht){
   const sha=await shaVon(pfad);
-  const koerper={message:nachricht,content:b64von(text)};
+  const koerper={message:nachricht,
+    content:(typeof inhalt==="string")?b64von(inhalt):b64vonBytes(inhalt)};
   if(sha)koerper.sha=sha;
   const r=await fetch(ghUrl(pfad),{method:"PUT",headers:
     Object.assign(ghKopf(false),{"Content-Type":"application/json"}),
@@ -1389,9 +1404,13 @@ async function schieben(){
   try{
     syStatus("Lade hoch …");
     const st=standJetzt();
-    await ghSchreiben(STANDPFAD,JSON.stringify(st),"Stand "+st.stand);
+    const roh=JSON.stringify(st);
+    const bytes=await packen(roh);
+    if(!bytes){syStatus("Dieser Browser kann nicht packen. Bitte Chrome verwenden.",true);return;}
+    await ghSchreiben(STANDPFAD,bytes,"Stand "+st.stand);
     DB.stand=st.stand; sichern();
-    syStatus("Hochgeladen. Andere Geräte sehen das nach dem nächsten Öffnen.");
+    syStatus("Hochgeladen ("+(bytes.length/1048576).toFixed(1)+" MB gepackt aus "
+      +(roh.length/1048576).toFixed(1)+" MB). Andere Geräte sehen das nach dem nächsten Öffnen.");
   }catch(e){ syStatus(e.message,true); }
 }
 function syncUiFuellen(){
